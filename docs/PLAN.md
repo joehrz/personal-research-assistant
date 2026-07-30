@@ -1,0 +1,73 @@
+# Phase 1 Technical Plan — "Better than Notepad"
+
+## Context
+
+Building the MVP described in `BRAINSTORM.md`: a local-first personal research assistant
+combining quick snippet capture, Markdown notes, tasks with natural-language entry, and
+full-text search. Target platform is Windows desktop; primary developer is strongest in
+Python; both academic sources (DOI) and general web capture matter.
+
+## Stack decision
+
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Backend | **Python 3.11 + FastAPI + SQLAlchemy + SQLite** | Python is the dev's home turf; future AI/RAG, PDF parsing, and DOI metadata features are all Python-native. SQLite FTS5 gives instant full-text search with zero infra. |
+| Note storage | **Markdown files + YAML frontmatter** in a vault folder | Durable, portable, greppable, git/Syncthing-friendly. SQLite is only an index/cache that can be rebuilt from files. |
+| Frontend | **React + TypeScript + Vite + Tailwind CSS** | Web tech is what makes Notion/Obsidian look good; best-looking option available. |
+| Desktop shell | **pywebview** window + `keyboard` lib for the global quick-capture hotkey (Windows) | Keeps the whole runtime Python; no Rust/Electron toolchain. Can swap to Tauri later without touching backend or UI. |
+
+## Repository layout
+
+```
+backend/            FastAPI app (installable package `pra`)
+  pra/
+    config.py       settings: vault dir, db path (env-overridable)
+    db.py           engine/session, FTS5 setup
+    models.py       Project, Task, Source, NoteIndex, Link
+    schemas.py      Pydantic request/response models
+    services/
+      vault.py      markdown+frontmatter read/write, reindex
+      taskparse.py  natural-language task parsing (dates, #project, p1-p4, @tags)
+      search.py     FTS5 queries across notes+tasks
+    routers/        notes, tasks, projects, sources, capture, search
+  tests/            pytest suite for services + API
+frontend/           Vite + React + TS + Tailwind
+  src/
+    api/            typed API client
+    views/          Inbox, Notes, Tasks, Projects, Sources
+    components/     Layout, CommandPalette (Ctrl+K search), QuickCapture
+desktop/
+  main.py           starts uvicorn + pywebview window + global hotkey
+docs/               BRAINSTORM.md, PLAN.md
+```
+
+## Core behaviors (Phase 1 scope)
+
+1. **Capture** → `POST /capture`: raw text lands as an inbox note (kind `snippet`),
+   optional `source_url`/`source_title`; `todo:` prefix creates a task instead.
+   Code snippets get language detection via fence hints.
+2. **Notes**: CRUD; each note is a `.md` file with frontmatter (`id, title, kind, tags,
+   project, source_url, created, modified`). Startup reindex scans the vault so external
+   edits are picked up.
+3. **Tasks**: CRUD with NL parsing — `"review paper draft friday 2pm #thesis p1 @deep-work"`
+   → title/due/scheduled/project/priority/tags. Views: today, upcoming, inbox, done.
+   Distinct `due_date` vs `scheduled_at`.
+4. **Projects**: simple containers (name, color, status) that notes and tasks reference.
+5. **Sources**: papers/articles/books with `url`, `doi`, `authors`, reading `status`;
+   snippets can link to a source (Phase 3 will deepen this).
+6. **Search**: FTS5 across note content + task titles, with type/tag/project filters;
+   surfaced in UI as a Ctrl+K command palette.
+
+## Verification
+
+- `cd backend && pip install -e .[dev] && pytest` — service + API tests (parsing,
+  vault round-trip, capture routing, search).
+- `cd frontend && npm install && npm run build` — type-checks and builds the UI.
+- Dev run: `uvicorn pra.main:app --reload` + `npm run dev` (proxy to :8000).
+- Windows desktop run: `python desktop/main.py` (opens window, registers Ctrl+Alt+Space
+  quick capture).
+
+## Explicitly deferred (later phases)
+
+Calendar/time-blocking UI, Google Calendar sync, wiki-links/backlinks, browser clipper,
+weekly review/resurfacing, AI/semantic search, mobile capture.
