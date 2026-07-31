@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import ReactMarkdown from "react-markdown";
 import { BookMarked, CalendarHeart, Eye, FileText, Link2, Pencil, Plus, Trash2, ExternalLink, X } from "lucide-react";
 import clsx from "clsx";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Route, Routes, useSearchParams } from "react-router-dom";
+import { Route, Routes, useSearchParams } from "react-router";
 import Layout from "./components/Layout";
 import CommandPalette from "./components/CommandPalette";
 import QuickCapture from "./components/QuickCapture";
