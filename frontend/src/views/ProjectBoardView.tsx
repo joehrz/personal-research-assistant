@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, StickyNote } from "lucide-react";
 import clsx from "clsx";
 import { api, type NoteMeta, type Project, type Task } from "../api";

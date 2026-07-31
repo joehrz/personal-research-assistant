@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { ArchiveRestore, Trash2 } from "lucide-react";
 import { api, type TrashItem } from "../api";
 

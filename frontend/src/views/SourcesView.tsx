@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { BookMarked, ChevronDown, ChevronRight, Download, ExternalLink, Plus, Sparkle, StickyNote, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { api, type NoteMeta, type Source } from "../api";

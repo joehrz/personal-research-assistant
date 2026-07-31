@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Search, StickyNote, CheckSquare } from "lucide-react";
 import clsx from "clsx";
 import { api, type SearchHit } from "../api";
