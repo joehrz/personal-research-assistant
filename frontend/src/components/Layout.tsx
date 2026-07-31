@@ -6,6 +6,7 @@ import {
   CalendarDays,
   FolderKanban,
   BookMarked,
+  Sparkles,
   Search,
   Plus,
 } from "lucide-react";
@@ -18,6 +19,7 @@ const NAV = [
   { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/sources", label: "Sources", icon: BookMarked },
+  { to: "/review", label: "Review", icon: Sparkles },
 ];
 
 export default function Layout({

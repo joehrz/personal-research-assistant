@@ -9,6 +9,7 @@ import TasksView from "./views/TasksView";
 import CalendarView from "./views/CalendarView";
 import ProjectsView from "./views/ProjectsView";
 import SourcesView from "./views/SourcesView";
+import ReviewView from "./views/ReviewView";
 
 export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="calendar" element={<CalendarView />} />
           <Route path="projects" element={<ProjectsView />} />
           <Route path="sources" element={<SourcesView />} />
+          <Route path="review" element={<ReviewView />} />
         </Route>
       </Routes>
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}

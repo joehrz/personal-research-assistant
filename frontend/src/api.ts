@@ -41,8 +41,14 @@ export interface NoteMeta {
   modified_at: string;
 }
 
+export interface LinkedNote {
+  id: string;
+  title: string;
+}
+
 export interface Note extends NoteMeta {
   content: string;
+  links: LinkedNote[];
 }
 
 export interface Source {
@@ -90,6 +96,21 @@ export interface CalendarFeedError {
   message: string;
 }
 
+export interface ProjectStat {
+  project: Project;
+  open_tasks: number;
+}
+
+export interface Review {
+  completed_last_7: number;
+  captured_last_7: number;
+  inbox_count: number;
+  open_tasks: number;
+  stale_tasks: Task[];
+  resurfaced: NoteMeta[];
+  projects: ProjectStat[];
+}
+
 export interface CaptureResult {
   kind: "task" | "snippet";
   task: Task | null;
@@ -134,6 +155,7 @@ export const api = {
   listNotes: (params: { kind?: string; inbox?: boolean; project_id?: string } = {}) =>
     request<NoteMeta[]>(`/api/notes${qs(params)}`),
   getNote: (id: string) => request<Note>(`/api/notes/${id}`),
+  getBacklinks: (id: string) => request<NoteMeta[]>(`/api/notes/${id}/backlinks`),
   createNote: (body: Partial<Note>) =>
     request<Note>("/api/notes", { method: "POST", body: JSON.stringify(body) }),
   updateNote: (id: string, body: Partial<Note>) =>
@@ -177,6 +199,8 @@ export const api = {
     request<{ events: CalendarEvent[]; errors: CalendarFeedError[] }>(
       `/api/calendar/events${qs({ start, end })}`,
     ),
+
+  getReview: () => request<Review>("/api/review"),
 
   search: (q: string, types?: string) =>
     request<{ query: string; hits: SearchHit[] }>(`/api/search${qs({ q, types })}`),

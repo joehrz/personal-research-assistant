@@ -1,9 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { Eye, Pencil, Plus, Trash2, ExternalLink } from "lucide-react";
+import { Eye, Link2, Pencil, Plus, Trash2, ExternalLink } from "lucide-react";
 import clsx from "clsx";
 import { api, type Note, type NoteMeta } from "../api";
+
+// Turn [[Target]] / [[Target|label]] into markdown links to resolved notes;
+// unresolved targets render as plain text with the brackets kept visible.
+function renderWikilinks(content: string, links: Note["links"]): string {
+  const byTitle = new Map(links.map((l) => [l.title.toLowerCase(), l.id]));
+  return content.replace(
+    /\[\[([^\[\]|\n]+?)(?:\|([^\[\]\n]+?))?\]\]/g,
+    (whole, target: string, label?: string) => {
+      const id = byTitle.get(target.trim().toLowerCase());
+      return id ? `[${(label ?? target).trim()}](#/notes/${id})` : whole;
+    },
+  );
+}
 
 export default function NotesView() {
   const { noteId } = useParams();
@@ -14,7 +27,13 @@ export default function NotesView() {
   const [title, setTitle] = useState("");
   const [preview, setPreview] = useState(false);
   const [saved, setSaved] = useState(true);
+  const [backlinks, setBacklinks] = useState<NoteMeta[]>([]);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const previewText = useMemo(
+    () => (active ? renderWikilinks(draft, active.links) : draft),
+    [draft, active],
+  );
 
   const loadList = useCallback(async () => {
     setNotes(await api.listNotes({ inbox: false }));
@@ -35,6 +54,7 @@ export default function NotesView() {
       setTitle(n.title);
       setSaved(true);
     }).catch(() => navigate("/notes"));
+    api.getBacklinks(noteId).then(setBacklinks).catch(() => setBacklinks([]));
   }, [noteId, navigate]);
 
   // Debounced autosave.
@@ -43,7 +63,8 @@ export default function NotesView() {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       if (!active) return;
-      await api.updateNote(active.id, { title: nextTitle, content: nextContent });
+      const updated = await api.updateNote(active.id, { title: nextTitle, content: nextContent });
+      setActive((prev) => (prev && prev.id === updated.id ? { ...prev, links: updated.links } : prev));
       setSaved(true);
       void loadList();
     }, 600);
@@ -140,7 +161,7 @@ export default function NotesView() {
           )}
           {preview ? (
             <div className="flex-1 overflow-y-auto px-8 py-6 prose-md">
-              <ReactMarkdown>{draft}</ReactMarkdown>
+              <ReactMarkdown>{previewText}</ReactMarkdown>
             </div>
           ) : (
             <textarea
@@ -150,8 +171,26 @@ export default function NotesView() {
                 scheduleSave(title, e.target.value);
               }}
               className="flex-1 w-full bg-transparent px-8 py-6 outline-none resize-none font-mono text-[14px] leading-relaxed"
-              placeholder="Write in Markdown…"
+              placeholder="Write in Markdown…  Link other notes with [[Note Title]]"
             />
+          )}
+          {backlinks.length > 0 && (
+            <div className="border-t border-ink-800 px-8 py-3">
+              <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-500 mb-2">
+                <Link2 size={12} /> Linked from
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {backlinks.map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => navigate(`/notes/${b.id}`)}
+                    className="rounded-full bg-ink-800 hover:bg-ink-700 px-3 py-1 text-xs text-ink-100 transition-colors"
+                  >
+                    {b.title || "Untitled"}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       ) : (

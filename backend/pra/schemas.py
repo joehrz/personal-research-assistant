@@ -160,8 +160,14 @@ class NoteMeta(ORMModel):
     modified_at: datetime
 
 
+class LinkedNote(BaseModel):
+    id: str
+    title: str
+
+
 class NoteOut(NoteMeta):
     content: str = ""
+    links: list[LinkedNote] = []  # notes this note wiki-links to
 
 
 # ---- Capture --------------------------------------------------------------
@@ -236,3 +242,20 @@ class SearchHit(BaseModel):
 class SearchOut(BaseModel):
     query: str
     hits: list[SearchHit]
+
+
+# ---- Review ---------------------------------------------------------------
+
+class ProjectStat(BaseModel):
+    project: ProjectOut
+    open_tasks: int
+
+
+class ReviewOut(BaseModel):
+    completed_last_7: int
+    captured_last_7: int
+    inbox_count: int
+    open_tasks: int
+    stale_tasks: list[TaskOut]
+    resurfaced: list[NoteMeta]
+    projects: list[ProjectStat]

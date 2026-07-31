@@ -86,7 +86,22 @@ docs/               BRAINSTORM.md, PLAN.md
   posts to `/api/capture` on 127.0.0.1 with source URL/title. Backend CORS
   allows `chrome-extension://` origins.
 
+## Phase 3 (built)
+
+- **Wiki-links** (`pra/services/wikilinks.py`): `[[Title]]` / `[[Title|label]]`
+  resolved case-insensitively to note ids at save/reindex time and stored in
+  the `links` table (kind `wikilink`) — rename-safe because the id is stored.
+  Reindex resolves in a second pass so cross-file links work regardless of
+  file order. Endpoints: `NoteOut.links` (outgoing) and
+  `GET /api/notes/{id}/backlinks`. Preview renders resolved links as
+  navigation; a "Linked from" panel lists backlinks.
+- **Weekly review** (`pra/services/review.py`, `GET /api/review`): 7-day
+  throughput stats, inbox backlog, stale tasks (overdue > 3 days, or dateless
+  and created > 21 days ago) with quick actions, resurfaced notes (non-inbox,
+  untouched > 45 days, random 5 — "Still relevant ✓" bumps `modified_at` via
+  an empty PATCH), and active-project open-task counts.
+
 ## Explicitly deferred (later phases)
 
-Wiki-links/backlinks, weekly review/resurfacing, AI/semantic search, mobile
-capture, two-way calendar write-back.
+AI/semantic search, mobile capture, two-way calendar write-back, wiki-link
+autocomplete in the editor.

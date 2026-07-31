@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from ..config import Settings
 from ..models import NoteIndex, new_id, utcnow
 from . import search as search_service
+from . import wikilinks
 
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 
@@ -138,6 +139,7 @@ def create_note(
     session.flush()  # apply column defaults (timestamps) before writing the file
     _write_note_file(settings, note, content)
     search_service.index_note(session, note, content)
+    wikilinks.update_for_note(session, note, content)
     session.commit()
     return note
 
@@ -167,6 +169,7 @@ def update_note(
 
     _write_note_file(settings, note, content)
     search_service.index_note(session, note, content)
+    wikilinks.update_for_note(session, note, content)
     session.commit()
     return note
 
@@ -176,6 +179,7 @@ def delete_note(session: Session, settings: Settings, note: NoteIndex) -> None:
     if path.exists():
         path.unlink()
     search_service.remove(session, "note", note.id)
+    wikilinks.remove_all(session, note.id)
     session.delete(note)
     session.commit()
 
@@ -184,6 +188,7 @@ def reindex(session: Session, settings: Settings) -> int:
     """Rebuild the note index from the files on disk. Returns note count."""
     settings.ensure_dirs()
     seen_ids: set[str] = set()
+    indexed: list[tuple[NoteIndex, str]] = []
     count = 0
     for path in sorted(settings.vault_dir.rglob("*.md")):
         rel = str(path.relative_to(settings.vault_dir))
@@ -216,12 +221,20 @@ def reindex(session: Session, settings: Settings) -> int:
                 except ValueError:
                     pass
         search_service.index_note(session, note, content.strip("\n"))
+        indexed.append((note, content.strip("\n")))
         count += 1
 
     # Drop index rows whose files vanished.
     for note in session.execute(select(NoteIndex)).scalars():
         if note.id not in seen_ids:
             search_service.remove(session, "note", note.id)
+            wikilinks.remove_all(session, note.id)
             session.delete(note)
+    session.flush()
+
+    # Second pass: resolve wiki-links only after every note is indexed, so
+    # links between files (in any order) resolve correctly.
+    for note, content in indexed:
+        wikilinks.update_for_note(session, note, content)
     session.commit()
     return count

@@ -31,6 +31,14 @@ your own disk.
   current selection or page to your inbox with the source URL and title
   attached; right-click, popup, or Alt+Shift+C. See
   [clipper/README.md](clipper/README.md).
+- **Wiki-links & backlinks** — write `[[Note Title]]` (or `[[Note Title|label]]`)
+  to link notes; links render as clickable in preview, and every note shows a
+  "Linked from" panel. Links are stored by id, so renaming a note doesn't
+  break them.
+- **Weekly review** — one screen showing the week's throughput, inbox backlog,
+  stale tasks (overdue or dateless-and-forgotten) with quick actions, a few
+  resurfaced old notes so past research resurfaces instead of rotting, and
+  per-project open-task counts.
 
 Data lives in `~/.personal-research-assistant/` (override with `PRA_DATA_DIR`):
 `vault/` holds your Markdown files; `pra.db` is a rebuildable index.
@@ -91,7 +99,7 @@ calendar.) Outlook and most other calendars offer an equivalent ICS URL.
 
 ## Roadmap
 
-Done: Phase 1 (capture, notes, tasks, search) and Phase 2 (week calendar with
-time blocking, ICS calendar feeds, browser clipper). Next: wiki-links and
-backlinks, weekly review/resurfacing, then semantic search and AI assistance.
-See [docs/BRAINSTORM.md](docs/BRAINSTORM.md) for the full roadmap.
+Done: Phase 1 (capture, notes, tasks, search), Phase 2 (week calendar with
+time blocking, ICS calendar feeds, browser clipper), and Phase 3 (wiki-links
+with backlinks, weekly review/resurfacing). Next: semantic search and AI
+assistance. See [docs/BRAINSTORM.md](docs/BRAINSTORM.md) for the full roadmap.
