@@ -11,6 +11,9 @@ import ProjectsView from "./views/ProjectsView";
 import SourcesView from "./views/SourcesView";
 import ReviewView from "./views/ReviewView";
 import MobileCaptureView from "./views/MobileCaptureView";
+import ProjectBoardView from "./views/ProjectBoardView";
+import GraphView from "./views/GraphView";
+import TrashView from "./views/TrashView";
 
 export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -55,7 +58,10 @@ export default function App() {
           <Route path="tasks" element={<TasksView />} />
           <Route path="calendar" element={<CalendarView />} />
           <Route path="projects" element={<ProjectsView />} />
+          <Route path="projects/:projectId" element={<ProjectBoardView />} />
           <Route path="sources" element={<SourcesView />} />
+          <Route path="graph" element={<GraphView />} />
+          <Route path="trash" element={<TrashView />} />
           <Route path="review" element={<ReviewView />} />
         </Route>
       </Routes>

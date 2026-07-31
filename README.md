@@ -54,6 +54,22 @@ your own disk.
   template on first open, idempotent after that).
 - **Mobile capture (PWA)** — a phone-friendly capture page at `#/capture`,
   installable to your home screen. See below.
+- **DOI / arXiv autofill & BibTeX export** — paste a DOI, arXiv id, or paper
+  URL into the source form and fetch title/authors/year/venue from Crossref or
+  arXiv (plain metadata APIs, no AI); export all sources as `sources.bib` for
+  LaTeX.
+- **Image & attachment paste** — paste a screenshot or file into the note
+  editor; it's stored in `vault/assets/` (so it syncs/backs up with the vault)
+  and embedded as Markdown.
+- **Trash** — deleting a note moves it to a trash folder, restorable for 30
+  days from the Trash screen, then purged automatically.
+- **Automatic vault backup** — every startup snapshots the vault into a local
+  git repository inside `vault/` (full history of every note, recoverable with
+  plain git); "Back up now" lives on the Review screen.
+- **Project boards** — click a project for a To do / Doing / Done Kanban board
+  with drag-and-drop, plus that project's notes.
+- **Graph view** — an interactive map of your notes and their wiki-links;
+  hover to highlight a note's neighborhood, click to open it.
 - **Weekly review** — one screen showing the week's throughput, inbox backlog,
   stale tasks (overdue or dateless-and-forgotten) with quick actions, a few
   resurfaced old notes so past research resurfaces instead of rotting, and

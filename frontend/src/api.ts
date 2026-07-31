@@ -12,7 +12,7 @@ export interface Task {
   id: string;
   title: string;
   notes: string;
-  status: "todo" | "done";
+  status: "todo" | "doing" | "done";
   priority: number;
   tags: string[];
   due_date: string | null;
@@ -58,10 +58,40 @@ export interface Source {
   authors: string[];
   url: string;
   doi: string;
+  year: number | null;
+  venue: string;
   kind: string;
   status: "to_read" | "reading" | "read";
   notes: string;
   created_at: string;
+}
+
+export interface SourceLookup {
+  title: string;
+  authors: string[];
+  year: number | null;
+  venue: string;
+  doi: string;
+  url: string;
+  kind: string;
+}
+
+export interface TrashItem {
+  name: string;
+  title: string;
+  deleted_at: string | null;
+}
+
+export interface BackupStatus {
+  git_available: boolean;
+  initialized: boolean;
+  last_backup: string | null;
+  commits: number;
+}
+
+export interface Graph {
+  nodes: { id: string; title: string; kind: string }[];
+  edges: { from_id: string; to_id: string }[];
 }
 
 export interface SearchHit {
@@ -233,6 +263,24 @@ export const api = {
 
   listTemplates: () => request<Template[]>("/api/templates"),
   dailyToday: () => request<Note>("/api/notes/daily/today", { method: "POST" }),
+
+  lookupSource: (query: string) =>
+    request<SourceLookup>("/api/sources/lookup", { method: "POST", body: JSON.stringify({ query }) }),
+  uploadAsset: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file, file.name || "pasted.png");
+    const res = await fetch("/api/assets", { method: "POST", body: form });
+    if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+    return res.json() as Promise<{ url: string; markdown: string; is_image: boolean }>;
+  },
+  listTrash: () => request<TrashItem[]>("/api/trash"),
+  restoreTrash: (name: string) =>
+    request<Note>(`/api/trash/${encodeURIComponent(name)}/restore`, { method: "POST" }),
+  purgeTrash: (name: string) =>
+    request<void>(`/api/trash/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  backupStatus: () => request<BackupStatus>("/api/backup/status"),
+  runBackup: () => request<{ ok: boolean; message: string }>("/api/backup/run", { method: "POST" }),
+  getGraph: () => request<Graph>("/api/graph"),
 
   search: (q: string, types?: string) =>
     request<{ query: string; hits: SearchHit[] }>(`/api/search${qs({ q, types })}`),

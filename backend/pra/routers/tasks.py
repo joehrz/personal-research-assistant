@@ -55,7 +55,7 @@ def list_tasks(
     if view == "done":
         stmt = stmt.where(Task.status == "done").order_by(Task.completed_at.desc())
     else:
-        stmt = stmt.where(Task.status == "todo")
+        stmt = stmt.where(Task.status != "done")  # todo and doing are both open
         if view == "today":
             stmt = stmt.where(Task.due_date <= today)
         elif view == "upcoming":

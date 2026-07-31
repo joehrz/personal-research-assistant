@@ -69,6 +69,8 @@ class Source(Base):
     authors: Mapped[list] = mapped_column(JSON, default=list)
     url: Mapped[str] = mapped_column(String(1000), default="")
     doi: Mapped[str] = mapped_column(String(200), default="")
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    venue: Mapped[str] = mapped_column(String(300), default="")  # journal / conference
     kind: Mapped[str] = mapped_column(String(20), default="article")  # paper|article|book|video|other
     status: Mapped[str] = mapped_column(String(20), default="to_read")  # to_read|reading|read
     notes: Mapped[str] = mapped_column(Text, default="")

@@ -135,8 +135,29 @@ docs/               BRAINSTORM.md, PLAN.md
   icons; served over LAN with `--host 0.0.0.0` and installable via
   Add to Home Screen.
 
+## Phase 6 (built)
+
+- **DOI/arXiv autofill + BibTeX** (`pra/services/doi.py`): Crossref and arXiv
+  metadata lookup with pure-function parsers (unit-tested offline);
+  `POST /api/sources/lookup`, `GET /api/sources/export.bib` with de-duplicated
+  citation keys (`kerbl2023splatting`, `…2`). Sources gain `year`/`venue`.
+- **Asset uploads** (`pra/routers/assets.py`): paste images/files into the
+  editor → stored under `vault/assets/<yyyy-mm>/`, served at `/vault-assets/…`
+  (deliberately NOT `/assets`, which the built frontend bundle mount uses).
+- **Trash** (vault service): delete moves the file to `<data>/trash/` with a
+  timestamp prefix; list/restore/purge endpoints + Trash screen; 30-day
+  auto-purge at startup.
+- **Vault backup** (`pra/services/backup.py`): local git repo inside the
+  vault, auto-commit on startup + manual "Back up now"; fails soft when git
+  is absent.
+- **Kanban boards**: task status gains `doing` (open views use
+  `status != done`); `/projects/:id` board with drag-and-drop columns and the
+  project's notes.
+- **Graph view**: `GET /api/graph` (non-inbox notes + wikilink edges); canvas
+  force-directed layout with hover-neighborhood highlighting, no external
+  libraries.
+
 ## Explicitly deferred
 
 AI/semantic search (skipped by decision), two-way calendar write-back,
-DOI metadata autofill + BibTeX export, image/attachment paste, per-project
-Kanban, graph view, trash/undo safety net, automated vault backup.
+email-in capture, task dependencies, encryption at rest.

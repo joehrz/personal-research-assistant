@@ -43,6 +43,14 @@ class Settings:
     def templates_dir(self) -> Path:
         return self.vault_dir / "templates"
 
+    @property
+    def assets_dir(self) -> Path:
+        return self.vault_dir / "assets"
+
+    @property
+    def trash_dir(self) -> Path:
+        return self.data_dir / "trash"
+
     @classmethod
     def from_env(cls) -> "Settings":
         raw = os.environ.get("PRA_DATA_DIR")
@@ -51,5 +59,5 @@ class Settings:
 
     def ensure_dirs(self) -> None:
         for d in (self.data_dir, self.vault_dir, self.inbox_dir, self.notes_dir,
-                  self.templates_dir):
+                  self.templates_dir, self.assets_dir, self.trash_dir):
             d.mkdir(parents=True, exist_ok=True)

@@ -92,6 +92,8 @@ class SourceCreate(BaseModel):
     authors: list[str] = []
     url: str = ""
     doi: str = ""
+    year: int | None = None
+    venue: str = ""
     kind: str = "article"
     status: str = "to_read"
     notes: str = ""
@@ -102,6 +104,8 @@ class SourceUpdate(BaseModel):
     authors: list[str] | None = None
     url: str | None = None
     doi: str | None = None
+    year: int | None = None
+    venue: str | None = None
     kind: str | None = None
     status: str | None = None
     notes: str | None = None
@@ -113,10 +117,26 @@ class SourceOut(ORMModel):
     authors: list[str]
     url: str
     doi: str
+    year: int | None
+    venue: str
     kind: str
     status: str
     notes: str
     created_at: datetime
+
+
+class SourceLookupIn(BaseModel):
+    query: str  # a DOI, arXiv id, or URL containing either
+
+
+class SourceLookupOut(BaseModel):
+    title: str
+    authors: list[str]
+    year: int | None
+    venue: str
+    doi: str
+    url: str
+    kind: str
 
 
 # ---- Notes ----------------------------------------------------------------
@@ -287,6 +307,42 @@ class TimeSummaryOut(BaseModel):
 class TemplateOut(BaseModel):
     name: str
     content: str
+
+
+# ---- Trash / backup / graph ----------------------------------------------
+
+class TrashItem(BaseModel):
+    name: str
+    title: str
+    deleted_at: str | None
+
+
+class BackupStatus(BaseModel):
+    git_available: bool
+    initialized: bool
+    last_backup: str | None
+    commits: int
+
+
+class BackupResult(BaseModel):
+    ok: bool
+    message: str
+
+
+class GraphNode(BaseModel):
+    id: str
+    title: str
+    kind: str
+
+
+class GraphEdge(BaseModel):
+    from_id: str
+    to_id: str
+
+
+class GraphOut(BaseModel):
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
 
 
 # ---- Review ---------------------------------------------------------------

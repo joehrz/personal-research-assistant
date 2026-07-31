@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import {
   AlarmClockOff,
   CheckCircle2,
+  HardDriveDownload,
   History,
   Inbox,
   Sparkles,
   Timer,
   Trash2,
 } from "lucide-react";
-import { api, type Review, type TimeSummary } from "../api";
+import { api, type BackupStatus, type Review, type TimeSummary } from "../api";
 
 const hoursLabel = (min: number) =>
   min >= 60 ? `${(min / 60).toFixed(1).replace(/\.0$/, "")}h` : `${min}m`;
@@ -100,7 +101,15 @@ function Stat({ value, label }: { value: number; label: string }) {
 export default function ReviewView() {
   const [review, setReview] = useState<Review | null>(null);
   const [timeSummary, setTimeSummary] = useState<TimeSummary | null>(null);
+  const [backup, setBackup] = useState<BackupStatus | null>(null);
+  const [backupMsg, setBackupMsg] = useState("");
   const navigate = useNavigate();
+
+  const backUpNow = async () => {
+    const r = await api.runBackup();
+    setBackupMsg(r.message);
+    setBackup(await api.backupStatus());
+  };
 
   const load = useCallback(async () => {
     setReview(await api.getReview());
@@ -109,6 +118,7 @@ export default function ReviewView() {
     const end = new Date();
     end.setDate(end.getDate() + 1);
     setTimeSummary(await api.timeSummary(localIso(start), localIso(end)));
+    setBackup(await api.backupStatus());
   }, []);
 
   useEffect(() => {
@@ -230,6 +240,27 @@ export default function ReviewView() {
           </div>
         )}
       </section>
+
+      {backup && backup.git_available && (
+        <section className="mb-8">
+          <div className="flex items-center gap-3 rounded-xl border border-ink-800 bg-ink-900 px-4 py-3">
+            <HardDriveDownload size={16} className="text-accent-400 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Vault backup</p>
+              <p className="text-xs text-ink-500">
+                {backup.commits} snapshot{backup.commits === 1 ? "" : "s"}
+                {backup.last_backup &&
+                  ` · last ${new Date(backup.last_backup).toLocaleString()}`}
+                {backupMsg && <span className="ml-2 text-emerald-400">{backupMsg}</span>}
+              </p>
+            </div>
+            <button onClick={() => void backUpNow()}
+              className="ml-auto shrink-0 rounded-lg bg-ink-800 hover:bg-ink-700 px-3 py-1.5 text-xs text-ink-300 hover:text-ink-100 transition-colors">
+              Back up now
+            </button>
+          </div>
+        </section>
+      )}
 
       <section>
         <h3 className="text-sm font-semibold mb-3">Active projects</h3>

@@ -107,6 +107,28 @@ export default function NotesView() {
     });
   };
 
+  const onEditorPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(e.clipboardData.files);
+    if (files.length === 0) return;
+    e.preventDefault();
+    const ta = textareaRef.current;
+    let cursor = ta ? ta.selectionStart : draft.length;
+    let next = draft;
+    for (const file of files) {
+      try {
+        const asset = await api.uploadAsset(file);
+        const insert = `${asset.markdown}\n`;
+        next = next.slice(0, cursor) + insert + next.slice(cursor);
+        cursor += insert.length;
+      } catch {
+        /* upload failed; skip this file */
+      }
+    }
+    setDraft(next);
+    scheduleSave(title, next);
+    requestAnimationFrame(() => ta?.setSelectionRange(cursor, cursor));
+  };
+
   const onEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (wiki === null || wikiMatches.length === 0) return;
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -177,6 +199,13 @@ export default function NotesView() {
         <div className="relative flex items-center px-4 py-3 border-b border-ink-800">
           <h2 className="text-sm font-semibold">Notes</h2>
           <div className="ml-auto flex items-center gap-0.5">
+            <button
+              onClick={() => navigate("/trash")}
+              className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
+              title="Trash"
+            >
+              <Trash2 size={14} />
+            </button>
             <button
               onClick={() => void openDaily()}
               className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
@@ -321,6 +350,7 @@ export default function NotesView() {
                   refreshWikiState(e.target.value, e.target.selectionStart);
                 }}
                 onKeyDown={onEditorKeyDown}
+                onPaste={(e) => void onEditorPaste(e)}
                 onClick={(e) =>
                   refreshWikiState(e.currentTarget.value, e.currentTarget.selectionStart)
                 }

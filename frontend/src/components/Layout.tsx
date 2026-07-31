@@ -9,6 +9,7 @@ import {
   Sparkles,
   Search,
   Plus,
+  Waypoints,
 } from "lucide-react";
 import clsx from "clsx";
 import TimerWidget from "./TimerWidget";
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/sources", label: "Sources", icon: BookMarked },
+  { to: "/graph", label: "Graph", icon: Waypoints },
   { to: "/review", label: "Review", icon: Sparkles },
 ];
 
