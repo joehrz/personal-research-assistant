@@ -44,6 +44,7 @@ def init_db(engine: Engine) -> None:
         _ensure_column(conn, "tasks", "recurrence", "VARCHAR(40) NOT NULL DEFAULT ''")
         _ensure_column(conn, "sources", "year", "INTEGER")
         _ensure_column(conn, "sources", "venue", "VARCHAR(300) NOT NULL DEFAULT ''")
+        _ensure_column(conn, "sources", "project_id", "VARCHAR(32) REFERENCES projects(id)")
         conn.execute(
             text(
                 """

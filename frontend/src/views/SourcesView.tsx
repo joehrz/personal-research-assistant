@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { BookMarked, ChevronDown, ChevronRight, Download, ExternalLink, Plus, Sparkle, StickyNote, Trash2 } from "lucide-react";
 import clsx from "clsx";
-import { api, type NoteMeta, type Source } from "../api";
+import { api, type NoteMeta, type Project, type Source } from "../api";
 
 const STATUS: { key: Source["status"]; label: string; cls: string }[] = [
   { key: "to_read", label: "To read", cls: "text-amber-400 bg-amber-400/10" },
@@ -13,7 +13,8 @@ const STATUS: { key: Source["status"]; label: string; cls: string }[] = [
 export default function SourcesView() {
   const [sources, setSources] = useState<Source[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", url: "", doi: "", authors: "", kind: "paper", year: "", venue: "" });
+  const [form, setForm] = useState({ title: "", url: "", doi: "", authors: "", kind: "paper", year: "", venue: "", project_id: "" });
+  const [projects, setProjects] = useState<Project[]>([]);
   const [lookupQuery, setLookupQuery] = useState("");
   const [lookupState, setLookupState] = useState<"idle" | "busy" | "error">("idle");
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -32,7 +33,10 @@ export default function SourcesView() {
     }
   };
 
-  const load = useCallback(async () => setSources(await api.listSources()), []);
+  const load = useCallback(async () => {
+    setSources(await api.listSources());
+    setProjects(await api.listProjects());
+  }, []);
 
   useEffect(() => {
     void load();
@@ -47,9 +51,10 @@ export default function SourcesView() {
       kind: form.kind,
       year: form.year.trim() ? Number(form.year) : null,
       venue: form.venue.trim(),
+      project_id: form.project_id || null,
       authors: form.authors.split(",").map((a) => a.trim()).filter(Boolean),
     });
-    setForm({ title: "", url: "", doi: "", authors: "", kind: "paper", year: "", venue: "" });
+    setForm({ title: "", url: "", doi: "", authors: "", kind: "paper", year: "", venue: "", project_id: "" });
     setShowForm(false);
     void load();
   };
@@ -59,7 +64,8 @@ export default function SourcesView() {
     setLookupState("busy");
     try {
       const r = await api.lookupSource(lookupQuery);
-      setForm({
+      setForm((prev) => ({
+        ...prev,
         title: r.title,
         url: r.url,
         doi: r.doi,
@@ -67,7 +73,7 @@ export default function SourcesView() {
         kind: r.kind,
         year: r.year ? String(r.year) : "",
         venue: r.venue,
-      });
+      }));
       setLookupState("idle");
       setLookupQuery("");
     } catch {
@@ -153,6 +159,13 @@ export default function SourcesView() {
             onChange={(e) => setForm({ ...form, year: e.target.value })} />
           <input className={input} placeholder="Venue (journal / conference)" value={form.venue}
             onChange={(e) => setForm({ ...form, venue: e.target.value })} />
+          <select className={clsx(input, "col-span-2")} value={form.project_id}
+            onChange={(e) => setForm({ ...form, project_id: e.target.value })}>
+            <option value="">No project</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>Project: {p.name}</option>
+            ))}
+          </select>
           <div className="col-span-2 flex justify-end">
             <button onClick={() => void create()}
               className="rounded-lg bg-accent-500 hover:bg-accent-400 text-white text-sm font-medium px-4 py-2 transition-colors">

@@ -10,11 +10,14 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "katex": "^0.18.1",
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.0.0",
-    "react-router": "^8.3.0"
+    "react-router": "^8.3.0",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

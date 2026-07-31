@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ExternalLink, FileCheck, ListTodo, Trash2, Inbox as InboxIcon } from "lucide-react";
 import { api, type Note, type NoteMeta } from "../api";
+import { CAPTURE_EVENT } from "../components/QuickCapture";
 
 export default function InboxView() {
   const [items, setItems] = useState<NoteMeta[]>([]);
@@ -21,6 +22,9 @@ export default function InboxView() {
 
   useEffect(() => {
     void load();
+    const onCapture = () => void load();
+    window.addEventListener(CAPTURE_EVENT, onCapture);
+    return () => window.removeEventListener(CAPTURE_EVENT, onCapture);
   }, [load]);
 
   const fileAsNote = async (id: string) => {

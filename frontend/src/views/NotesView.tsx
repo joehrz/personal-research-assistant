@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { BookMarked, CalendarHeart, Eye, FileText, Link2, Pencil, Plus, Trash2, ExternalLink, X } from "lucide-react";
 import clsx from "clsx";
 import { api, type Note, type NoteMeta, type Source, type Template } from "../api";
@@ -308,18 +311,24 @@ export default function NotesView() {
                   <X size={11} />
                 </button>
               </span>
+            ) : sources.length === 0 && !active.source_url ? (
+              <span className="text-ink-500">
+                No sources yet — add papers/articles in the Sources tab, then link them here.
+              </span>
             ) : (
               <>
-                <select
-                  value=""
-                  onChange={(e) => e.target.value && void linkSource(e.target.value)}
-                  className="rounded-md border border-ink-700 bg-ink-850 px-2 py-1 text-xs text-ink-300 outline-none focus:border-accent-500"
-                >
-                  <option value="">Link source…</option>
-                  {sources.map((s) => (
-                    <option key={s.id} value={s.id}>{s.title}</option>
-                  ))}
-                </select>
+                {sources.length > 0 && (
+                  <select
+                    value=""
+                    onChange={(e) => e.target.value && void linkSource(e.target.value)}
+                    className="rounded-md border border-ink-700 bg-ink-850 px-2 py-1 text-xs text-ink-300 outline-none focus:border-accent-500"
+                  >
+                    <option value="">Link source…</option>
+                    {sources.map((s) => (
+                      <option key={s.id} value={s.id}>{s.title}</option>
+                    ))}
+                  </select>
+                )}
                 {active.source_url && (
                   <button onClick={() => void createSourceFromPage()}
                     className="rounded-md px-2 py-1 text-ink-300 hover:bg-ink-800 transition-colors">
@@ -337,7 +346,9 @@ export default function NotesView() {
           </div>
           {preview ? (
             <div className="flex-1 overflow-y-auto px-8 py-6 prose-md">
-              <ReactMarkdown>{previewText}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                {previewText}
+              </ReactMarkdown>
             </div>
           ) : (
             <div className="relative flex-1 flex">

@@ -63,6 +63,7 @@ export interface Source {
   kind: string;
   status: "to_read" | "reading" | "read";
   notes: string;
+  project_id: string | null;
   created_at: string;
 }
 
@@ -234,7 +235,7 @@ export const api = {
     request<Project>(`/api/projects/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: "DELETE" }),
 
-  listSources: () => request<Source[]>("/api/sources"),
+  listSources: (project_id?: string) => request<Source[]>(`/api/sources${qs({ project_id })}`),
   createSource: (body: Partial<Source>) =>
     request<Source>("/api/sources", { method: "POST", body: JSON.stringify(body) }),
   updateSource: (id: string, body: Partial<Source>) =>

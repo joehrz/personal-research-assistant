@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, StickyNote } from "lucide-react";
+import { ArrowLeft, BookMarked, CalendarDays, StickyNote } from "lucide-react";
 import clsx from "clsx";
-import { api, type NoteMeta, type Project, type Task } from "../api";
+import { api, type NoteMeta, type Project, type Source, type Task } from "../api";
 
 const COLUMNS = [
   { key: "todo", label: "To do" },
@@ -16,15 +16,17 @@ export default function ProjectBoardView() {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<NoteMeta[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
   const [text, setText] = useState("");
 
   const load = useCallback(async () => {
     if (!projectId) return;
-    const [projects, open, done, projectNotes] = await Promise.all([
+    const [projects, open, done, projectNotes, projectSources] = await Promise.all([
       api.listProjects(),
       api.listTasks("all", projectId),
       api.listTasks("done", projectId),
       api.listNotes({ project_id: projectId }),
+      api.listSources(projectId),
     ]);
     const p = projects.find((x) => x.id === projectId);
     if (!p) {
@@ -34,7 +36,13 @@ export default function ProjectBoardView() {
     setProject(p);
     setTasks([...open, ...done.slice(0, 15)]);
     setNotes(projectNotes);
+    setSources(projectSources);
   }, [projectId, navigate]);
+
+  const upcoming = tasks
+    .filter((t) => t.status !== "done" && t.scheduled_at && new Date(t.scheduled_at) >= new Date())
+    .sort((a, b) => a.scheduled_at!.localeCompare(b.scheduled_at!))
+    .slice(0, 6);
 
   useEffect(() => {
     void load();
@@ -116,6 +124,45 @@ export default function ProjectBoardView() {
           );
         })}
       </div>
+
+      {upcoming.length > 0 && (
+        <section className="mt-8">
+          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+            <CalendarDays size={14} className="text-accent-400" /> On the calendar
+          </h3>
+          <div className="space-y-1">
+            {upcoming.map((t) => (
+              <button key={t.id} onClick={() => navigate("/calendar")}
+                className="flex w-full items-center gap-3 rounded-lg border border-ink-800 bg-ink-900 px-3 py-2 text-left text-[13px] hover:border-accent-500 transition-colors">
+                <span className="min-w-0 truncate">{t.title}</span>
+                <span className="ml-auto shrink-0 text-[11px] text-ink-500">
+                  {new Date(t.scheduled_at!).toLocaleString(undefined, {
+                    weekday: "short", month: "short", day: "numeric",
+                    hour: "numeric", minute: "2-digit",
+                  })}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {sources.length > 0 && (
+        <section className="mt-8">
+          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+            <BookMarked size={14} className="text-accent-400" /> Sources
+          </h3>
+          <div className="flex flex-wrap gap-1.5">
+            {sources.map((s) => (
+              <button key={s.id} onClick={() => navigate("/sources")}
+                className="flex items-center gap-1.5 rounded-full bg-ink-800 hover:bg-ink-700 px-3 py-1 text-xs text-ink-100 transition-colors">
+                <BookMarked size={11} className="text-amber-400" />
+                {s.title}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {notes.length > 0 && (
         <section className="mt-8">

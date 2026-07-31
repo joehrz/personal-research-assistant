@@ -59,6 +59,8 @@ export default function CalendarView() {
   const gridRef = useRef<HTMLDivElement>(null);
   const resizing = useRef<{ id: string; startY: number; startDur: number } | null>(null);
   const [resizePreview, setResizePreview] = useState<{ id: string; dur: number } | null>(null);
+  // Double-clicking an empty slot opens an inline "new block" form there.
+  const [draft, setDraft] = useState<{ dayIso: string; minutes: number; title: string } | null>(null);
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -109,6 +111,33 @@ export default function CalendarView() {
   const startDrag = (e: React.DragEvent, task: Task) => {
     e.dataTransfer.setData("text/task-id", task.id);
     e.dataTransfer.effectAllowed = "move";
+  };
+
+  // ---- create a block in place --------------------------------------------
+
+  const openDraft = (e: React.MouseEvent, day: Date) => {
+    const col = e.currentTarget as HTMLElement;
+    const y = e.clientY - col.getBoundingClientRect().top;
+    let minutes = DAY_START * 60 + Math.floor(y / PX_PER_MIN / SNAP_MIN) * SNAP_MIN;
+    minutes = Math.max(DAY_START * 60, Math.min(minutes, DAY_END * 60 - 60));
+    setDraft({ dayIso: toDateStr(day), minutes, title: "" });
+  };
+
+  const saveDraft = async () => {
+    if (!draft || !draft.title.trim()) {
+      setDraft(null);
+      return;
+    }
+    const when = new Date(draft.dayIso + "T00:00:00");
+    when.setHours(Math.floor(draft.minutes / 60), draft.minutes % 60, 0, 0);
+    await api.createTask({
+      title: draft.title.trim(),
+      scheduled_at: toLocalIso(when),
+      due_date: draft.dayIso,
+      duration_min: 60,
+    });
+    setDraft(null);
+    void load();
   };
 
   // ---- resize --------------------------------------------------------------
@@ -181,7 +210,9 @@ export default function CalendarView() {
       <div className="w-64 shrink-0 border-r border-ink-800 flex flex-col">
         <div className="px-4 py-3 border-b border-ink-800">
           <h3 className="text-sm font-semibold">Unscheduled</h3>
-          <p className="text-[11px] text-ink-500 mt-0.5">Drag a task onto the week to block time.</p>
+          <p className="text-[11px] text-ink-500 mt-0.5">
+            Drag a task onto the week — or double-click any empty slot to create one there.
+          </p>
         </div>
         <div className="overflow-y-auto p-2 space-y-1.5">
           {unscheduled.map((t) => (
@@ -317,9 +348,29 @@ export default function CalendarView() {
                   key={day.toISOString()}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => void onDropOnDay(e, day)}
+                  onDoubleClick={(e) => openDraft(e, day)}
                   className="flex-1 min-w-0 relative border-l border-ink-850"
                   style={{ height: gridHeight }}
                 >
+                  {draft?.dayIso === toDateStr(day) && (
+                    <div
+                      className="absolute inset-x-0.5 z-30 rounded-md border border-accent-400 bg-ink-900 p-1.5 shadow-xl"
+                      style={{ top: (draft.minutes - DAY_START * 60) * PX_PER_MIN }}
+                    >
+                      <input
+                        autoFocus
+                        value={draft.title}
+                        onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void saveDraft();
+                          if (e.key === "Escape") setDraft(null);
+                        }}
+                        onBlur={() => void saveDraft()}
+                        placeholder="What are you doing? ⏎"
+                        className="w-full bg-transparent text-[12px] outline-none placeholder:text-ink-500"
+                      />
+                    </div>
+                  )}
                   {Array.from({ length: DAY_END - DAY_START }, (_, i) => (
                     <div key={i} className="absolute inset-x-0 border-t border-ink-850"
                       style={{ top: i * HOUR_PX }} />

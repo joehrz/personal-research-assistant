@@ -91,3 +91,11 @@ def test_export_bib_endpoint(client):
     assert r.status_code == 200
     assert "@article{vaswani2017attention," in r.text
     assert "journal = {NeurIPS}" in r.text
+
+
+def test_source_project_filter(client):
+    p = client.post("/api/projects", json={"name": "cv-project"}).json()
+    client.post("/api/sources", json={"title": "Linked paper", "project_id": p["id"]})
+    client.post("/api/sources", json={"title": "Unlinked paper"})
+    linked = client.get("/api/sources", params={"project_id": p["id"]}).json()
+    assert [s["title"] for s in linked] == ["Linked paper"]
