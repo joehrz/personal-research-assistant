@@ -117,7 +117,26 @@ docs/               BRAINSTORM.md, PLAN.md
   clip's URL/title); `GET /api/notes?source_id=` powers a per-source
   "everything from this paper" panel in SourcesView.
 
+## Phase 5 (built)
+
+- **Focus timer & time tracking** (`pra/routers/time.py`, `TimeEntry` model):
+  start/stop/current endpoints (starting stops the running entry), entries
+  stored in local wall-clock time to match `scheduled_at` day boundaries;
+  `/api/time/summary` groups minutes by day and project for the Review
+  screen's "where did my week go" bars. Sidebar TimerWidget polls + ticks;
+  tasks get a ▶ start-focus button that inherits label/project.
+- **Note templates** (`pra/services/templates.py`): editable Markdown files in
+  `vault/templates/` (excluded from note reindexing); defaults seeded on
+  startup, never overwritten; `{{date}}`/`{{title}}` placeholders.
+- **Daily notes**: `POST /api/notes/daily/today` gets-or-creates today's note
+  (kind `daily`, titled with the ISO date) from the `daily` template.
+- **Mobile capture PWA**: `#/capture` full-screen capture route,
+  `manifest.webmanifest` + minimal network-first service worker + generated
+  icons; served over LAN with `--host 0.0.0.0` and installable via
+  Add to Home Screen.
+
 ## Explicitly deferred
 
-AI/semantic search (skipped by decision), mobile capture, two-way calendar
-write-back, focus timer/time tracking, note templates, daily notes.
+AI/semantic search (skipped by decision), two-way calendar write-back,
+DOI metadata autofill + BibTeX export, image/attachment paste, per-project
+Kanban, graph view, trash/undo safety net, automated vault backup.

@@ -42,6 +42,18 @@ your own disk.
 - **Source ↔ note linking** — attach any note to a source from the editor (or
   create a source straight from a clipped page's URL); expanding a source in
   the Sources list shows everything you took from that paper/article.
+- **Focus timer & time tracking** — start a timer from the sidebar or from any
+  task's ▶ button (one runs at a time; starting another stops the first). The
+  weekly Review shows "where did my week go": tracked hours per day and per
+  project.
+- **Note templates** — paper summary, experiment log, and meeting templates
+  ship by default as editable Markdown files in `vault/templates/`; add your
+  own `.md` files there and they appear in the new-from-template menu
+  (`{{date}}`/`{{title}}` are filled in).
+- **Daily notes** — one click opens today's note (created from the `daily`
+  template on first open, idempotent after that).
+- **Mobile capture (PWA)** — a phone-friendly capture page at `#/capture`,
+  installable to your home screen. See below.
 - **Weekly review** — one screen showing the week's throughput, inbox backlog,
   stale tasks (overdue or dateless-and-forgotten) with quick actions, a few
   resurfaced old notes so past research resurfaces instead of rotting, and
@@ -95,6 +107,21 @@ one process runs.
 | `Ctrl+K` | Search palette |
 | `Ctrl+Enter` | Save capture |
 | `Esc` | Close dialogs |
+
+## Capturing from your phone
+
+The app is an installable PWA with a dedicated capture screen. To use it from
+your phone on your home network:
+
+```bash
+cd frontend && npm run build
+cd ../backend && uvicorn pra.main:create_app --factory --host 0.0.0.0 --port 8734
+```
+
+Then open `http://<your-pc-ip>:8734/#/capture` on your phone and use your
+browser's **Add to Home Screen** — it installs like an app that opens straight
+on the capture screen. Only bind to `0.0.0.0` on networks you trust; the
+regular desktop app keeps listening on localhost only.
 
 ## Connecting Google Calendar
 

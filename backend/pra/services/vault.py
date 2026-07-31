@@ -192,6 +192,8 @@ def reindex(session: Session, settings: Settings) -> int:
     count = 0
     for path in sorted(settings.vault_dir.rglob("*.md")):
         rel = str(path.relative_to(settings.vault_dir))
+        if rel.replace("\\", "/").startswith("templates/"):
+            continue  # templates are scaffolding, not notes
         meta, content = split_frontmatter(path.read_text(encoding="utf-8"))
         note_id = str(meta.get("id") or new_id())
         if note_id in seen_ids:  # duplicated id in a copied file: mint a new one

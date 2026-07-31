@@ -97,6 +97,27 @@ export interface CalendarFeedError {
   message: string;
 }
 
+export interface TimeEntry {
+  id: string;
+  label: string;
+  task_id: string | null;
+  project_id: string | null;
+  started_at: string;
+  ended_at: string | null;
+  minutes: number;
+}
+
+export interface TimeSummary {
+  total_min: number;
+  by_day: { date: string; minutes: number }[];
+  by_project: { project_id: string | null; project_name: string; color: string; minutes: number }[];
+}
+
+export interface Template {
+  name: string;
+  content: string;
+}
+
 export interface ProjectStat {
   project: Project;
   open_tasks: number;
@@ -202,6 +223,16 @@ export const api = {
     ),
 
   getReview: () => request<Review>("/api/review"),
+
+  startTimer: (body: { task_id?: string; label?: string }) =>
+    request<TimeEntry>("/api/time/start", { method: "POST", body: JSON.stringify(body) }),
+  stopTimer: () => request<TimeEntry | null>("/api/time/stop", { method: "POST" }),
+  currentTimer: () => request<TimeEntry | null>("/api/time/current"),
+  timeSummary: (start: string, end: string) =>
+    request<TimeSummary>(`/api/time/summary${qs({ start, end })}`),
+
+  listTemplates: () => request<Template[]>("/api/templates"),
+  dailyToday: () => request<Note>("/api/notes/daily/today", { method: "POST" }),
 
   search: (q: string, types?: string) =>
     request<{ query: string; hits: SearchHit[] }>(`/api/search${qs({ q, types })}`),

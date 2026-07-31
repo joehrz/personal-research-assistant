@@ -19,7 +19,10 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import Settings
 from .db import init_db, make_engine, make_sessionmaker
-from .routers import calendar, capture, notes, projects, review, search, sources, tasks
+from .routers import (
+    calendar, capture, notes, projects, review, search, sources, tasks, templates, time,
+)
+from .services import templates as template_service
 from .services import vault
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -46,10 +49,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    template_service.seed_defaults(settings)
     with sessionmaker() as session:
         vault.reindex(session, settings)
 
-    for router in (capture, notes, tasks, projects, sources, search, calendar, review):
+    for router in (capture, notes, tasks, projects, sources, search, calendar, review,
+                   templates, time):
         app.include_router(router.router)
 
     @app.get("/api/health")

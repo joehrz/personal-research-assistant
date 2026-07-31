@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Circle, CheckCircle2, Trash2, CalendarDays, Clock, Repeat } from "lucide-react";
+import { Circle, CheckCircle2, Trash2, CalendarDays, Clock, Play, Repeat } from "lucide-react";
 import clsx from "clsx";
 import { api, type Project, type Task } from "../api";
+import { notifyTimerChanged } from "../components/TimerWidget";
 
 const VIEWS = [
   { key: "today", label: "Today" },
@@ -70,6 +71,11 @@ export default function TasksView() {
   const remove = async (task: Task) => {
     await api.deleteTask(task.id);
     void load();
+  };
+
+  const focusOn = async (task: Task) => {
+    await api.startTimer({ task_id: task.id });
+    notifyTimerChanged();
   };
 
   return (
@@ -168,6 +174,15 @@ export default function TasksView() {
                   >
                     <CalendarDays size={11} /> {due.text}
                   </span>
+                )}
+                {task.status === "todo" && (
+                  <button
+                    onClick={() => void focusOn(task)}
+                    title="Start focus timer on this task"
+                    className="opacity-0 group-hover:opacity-100 text-ink-500 hover:text-accent-400 transition-all"
+                  >
+                    <Play size={13} />
+                  </button>
                 )}
                 <button
                   onClick={() => void remove(task)}

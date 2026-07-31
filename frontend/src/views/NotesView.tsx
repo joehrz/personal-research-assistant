@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { BookMarked, Eye, Link2, Pencil, Plus, Trash2, ExternalLink, X } from "lucide-react";
+import { BookMarked, CalendarHeart, Eye, FileText, Link2, Pencil, Plus, Trash2, ExternalLink, X } from "lucide-react";
 import clsx from "clsx";
-import { api, type Note, type NoteMeta, type Source } from "../api";
+import { api, type Note, type NoteMeta, type Source, type Template } from "../api";
 
 // Turn [[Target]] / [[Target|label]] into markdown links to resolved notes;
 // unresolved targets render as plain text with the brackets kept visible.
@@ -29,6 +29,8 @@ export default function NotesView() {
   const [saved, setSaved] = useState(true);
   const [backlinks, setBacklinks] = useState<NoteMeta[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
   const [wiki, setWiki] = useState<{ query: string; start: number; index: number } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -53,6 +55,7 @@ export default function NotesView() {
   useEffect(() => {
     void loadList();
     api.listSources().then(setSources).catch(() => setSources([]));
+    api.listTemplates().then(setTemplates).catch(() => setTemplates([]));
   }, [loadList]);
 
   useEffect(() => {
@@ -143,6 +146,24 @@ export default function NotesView() {
     navigate(`/notes/${n.id}`);
   };
 
+  const createFromTemplate = async (t: Template) => {
+    setShowTemplates(false);
+    const today = new Date().toISOString().slice(0, 10);
+    const niceName = t.name.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+    const n = await api.createNote({
+      title: `${niceName} — ${today}`,
+      content: t.content.replaceAll("{{date}}", today).replaceAll("{{title}}", niceName),
+    });
+    await loadList();
+    navigate(`/notes/${n.id}`);
+  };
+
+  const openDaily = async () => {
+    const n = await api.dailyToday();
+    await loadList();
+    navigate(`/notes/${n.id}`);
+  };
+
   const remove = async () => {
     if (!active) return;
     await api.deleteNote(active.id);
@@ -153,15 +174,47 @@ export default function NotesView() {
   return (
     <div className="flex h-full">
       <div className="w-72 shrink-0 border-r border-ink-800 flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-ink-800">
+        <div className="relative flex items-center px-4 py-3 border-b border-ink-800">
           <h2 className="text-sm font-semibold">Notes</h2>
-          <button
-            onClick={() => void createNew()}
-            className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
-            title="New note"
-          >
-            <Plus size={16} />
-          </button>
+          <div className="ml-auto flex items-center gap-0.5">
+            <button
+              onClick={() => void openDaily()}
+              className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
+              title="Open today's daily note"
+            >
+              <CalendarHeart size={15} />
+            </button>
+            <button
+              onClick={() => setShowTemplates((v) => !v)}
+              className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
+              title="New note from template"
+            >
+              <FileText size={15} />
+            </button>
+            <button
+              onClick={() => void createNew()}
+              className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
+              title="New blank note"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+          {showTemplates && (
+            <div className="absolute right-2 top-full z-30 mt-1 w-52 rounded-lg border border-ink-700 bg-ink-900 py-1 shadow-2xl">
+              <p className="px-3 py-1 text-[10px] uppercase tracking-wide text-ink-500">
+                New from template
+              </p>
+              {templates.filter((t) => t.name !== "daily").map((t) => (
+                <button
+                  key={t.name}
+                  onClick={() => void createFromTemplate(t)}
+                  className="block w-full px-3 py-1.5 text-left text-sm text-ink-300 hover:bg-ink-800 hover:text-ink-100"
+                >
+                  {t.name.replace(/-/g, " ")}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="overflow-y-auto">
           {notes.map((n) => (

@@ -10,6 +10,7 @@ import CalendarView from "./views/CalendarView";
 import ProjectsView from "./views/ProjectsView";
 import SourcesView from "./views/SourcesView";
 import ReviewView from "./views/ReviewView";
+import MobileCaptureView from "./views/MobileCaptureView";
 
 export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -46,6 +47,7 @@ export default function App() {
   return (
     <>
       <Routes>
+        <Route path="capture" element={<MobileCaptureView />} />
         <Route element={<Layout onCapture={() => setCaptureOpen(true)} onSearch={() => setPaletteOpen(true)} />}>
           <Route index element={<InboxView />} />
           <Route path="notes" element={<NotesView />} />

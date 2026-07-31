@@ -11,3 +11,10 @@ createRoot(document.getElementById("root")!).render(
     </HashRouter>
   </StrictMode>,
 );
+
+// PWA install support (skipped in dev where sw.js isn't served from root)
+if ("serviceWorker" in navigator && !import.meta.env.DEV) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}

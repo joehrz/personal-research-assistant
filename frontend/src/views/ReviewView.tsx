@@ -6,9 +6,87 @@ import {
   History,
   Inbox,
   Sparkles,
+  Timer,
   Trash2,
 } from "lucide-react";
-import { api, type Review } from "../api";
+import { api, type Review, type TimeSummary } from "../api";
+
+const hoursLabel = (min: number) =>
+  min >= 60 ? `${(min / 60).toFixed(1).replace(/\.0$/, "")}h` : `${min}m`;
+
+function localIso(d: Date) {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T00:00:00`;
+}
+
+/** Last-7-days focus time: one bar per day plus a per-project breakdown. */
+function TimeSection({ summary }: { summary: TimeSummary }) {
+  const days: { date: string; label: string; minutes: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const iso = localIso(d).slice(0, 10);
+    days.push({
+      date: iso,
+      label: d.toLocaleDateString(undefined, { weekday: "short" }),
+      minutes: summary.by_day.find((x) => x.date === iso)?.minutes ?? 0,
+    });
+  }
+  const maxDay = Math.max(60, ...days.map((d) => d.minutes));
+  const maxProject = Math.max(1, ...summary.by_project.map((p) => p.minutes));
+
+  return (
+    <section className="mb-8">
+      <h3 className="flex items-center gap-2 text-sm font-semibold mb-1">
+        <Timer size={15} className="text-accent-400" /> Where did my week go
+      </h3>
+      <p className="text-xs text-ink-500 mb-3">
+        {hoursLabel(summary.total_min)} of tracked focus in the last 7 days
+      </p>
+      <div className="rounded-xl border border-ink-800 bg-ink-900 p-4">
+        <div className="flex items-end gap-2" style={{ height: 96 }} role="img"
+          aria-label="Focus minutes per day, last 7 days">
+          {days.map((d) => (
+            <div key={d.date} className="flex-1 flex flex-col items-center justify-end h-full"
+              title={`${d.label}: ${hoursLabel(d.minutes)}`}>
+              {d.minutes > 0 && (
+                <span className="text-[10px] text-ink-500 mb-1">{hoursLabel(d.minutes)}</span>
+              )}
+              <div
+                className="w-full max-w-8 rounded-t bg-accent-400/80 hover:bg-accent-400 transition-colors"
+                style={{ height: Math.max(d.minutes > 0 ? 3 : 0, (d.minutes / maxDay) * 64) }}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2 mt-1.5 border-t border-ink-850 pt-1.5">
+          {days.map((d) => (
+            <span key={d.date} className="flex-1 text-center text-[10px] text-ink-500">
+              {d.label}
+            </span>
+          ))}
+        </div>
+        {summary.by_project.length > 0 && (
+          <div className="mt-4 space-y-1.5">
+            {summary.by_project.map((p) => (
+              <div key={p.project_id ?? "none"} className="flex items-center gap-2"
+                title={`${p.project_name}: ${hoursLabel(p.minutes)}`}>
+                <span className="w-32 shrink-0 truncate text-xs text-ink-300">{p.project_name}</span>
+                <div className="flex-1 h-2 rounded-full bg-ink-850 overflow-hidden">
+                  <div className="h-full rounded-full"
+                    style={{ width: `${(p.minutes / maxProject) * 100}%`, backgroundColor: p.color }} />
+                </div>
+                <span className="w-12 shrink-0 text-right text-[11px] text-ink-500 tabular-nums">
+                  {hoursLabel(p.minutes)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 function Stat({ value, label }: { value: number; label: string }) {
   return (
@@ -21,9 +99,17 @@ function Stat({ value, label }: { value: number; label: string }) {
 
 export default function ReviewView() {
   const [review, setReview] = useState<Review | null>(null);
+  const [timeSummary, setTimeSummary] = useState<TimeSummary | null>(null);
   const navigate = useNavigate();
 
-  const load = useCallback(async () => setReview(await api.getReview()), []);
+  const load = useCallback(async () => {
+    setReview(await api.getReview());
+    const start = new Date();
+    start.setDate(start.getDate() - 6);
+    const end = new Date();
+    end.setDate(end.getDate() + 1);
+    setTimeSummary(await api.timeSummary(localIso(start), localIso(end)));
+  }, []);
 
   useEffect(() => {
     void load();
@@ -77,6 +163,8 @@ export default function ReviewView() {
           {review.inbox_count} snippet{review.inbox_count === 1 ? "" : "s"} waiting for triage — go to Inbox
         </button>
       )}
+
+      {timeSummary && timeSummary.total_min > 0 && <TimeSection summary={timeSummary} />}
 
       <section className="mb-8">
         <h3 className="flex items-center gap-2 text-sm font-semibold mb-3">

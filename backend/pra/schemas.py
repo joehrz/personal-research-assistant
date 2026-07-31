@@ -247,6 +247,48 @@ class SearchOut(BaseModel):
     hits: list[SearchHit]
 
 
+# ---- Time tracking --------------------------------------------------------
+
+class TimeStartIn(BaseModel):
+    task_id: str | None = None
+    label: str = ""
+
+
+class TimeEntryOut(ORMModel):
+    id: str
+    label: str
+    task_id: str | None
+    project_id: str | None
+    started_at: datetime
+    ended_at: datetime | None
+    minutes: int = 0
+
+
+class TimeByDay(BaseModel):
+    date: str
+    minutes: int
+
+
+class TimeByProject(BaseModel):
+    project_id: str | None
+    project_name: str
+    color: str
+    minutes: int
+
+
+class TimeSummaryOut(BaseModel):
+    total_min: int
+    by_day: list[TimeByDay]
+    by_project: list[TimeByProject]
+
+
+# ---- Templates ------------------------------------------------------------
+
+class TemplateOut(BaseModel):
+    name: str
+    content: str
+
+
 # ---- Review ---------------------------------------------------------------
 
 class ProjectStat(BaseModel):

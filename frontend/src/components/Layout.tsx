@@ -11,6 +11,7 @@ import {
   Plus,
 } from "lucide-react";
 import clsx from "clsx";
+import TimerWidget from "./TimerWidget";
 
 const NAV = [
   { to: "/", label: "Inbox", icon: Inbox },
@@ -72,8 +73,11 @@ export default function Layout({
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto px-4 py-3 text-[11px] text-ink-500 border-t border-ink-800">
-          Local-first · your data stays on disk
+        <div className="mt-auto">
+          <TimerWidget />
+          <div className="px-4 py-3 text-[11px] text-ink-500 border-t border-ink-800">
+            Local-first · your data stays on disk
+          </div>
         </div>
       </aside>
       <main className="flex-1 min-w-0 overflow-y-auto">

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,6 +10,7 @@ from .. import schemas
 from ..config import Settings
 from ..deps import get_db, get_settings
 from ..models import NoteIndex
+from ..services import templates as template_service
 from ..services import vault, wikilinks
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
@@ -59,6 +62,28 @@ def list_notes(
     if tag:
         notes = [n for n in notes if tag in (n.tags or [])]
     return notes
+
+
+@router.post("/daily/today", response_model=schemas.NoteOut)
+def daily_today(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    """Get or create today's daily note (idempotent)."""
+    today = date.today().isoformat()
+    existing = db.execute(
+        select(NoteIndex).where(NoteIndex.kind == "daily", NoteIndex.title == today)
+    ).scalars().first()
+    if existing is not None:
+        return _to_out(settings, existing, db=db)
+    template = template_service.get(settings, "daily") or "# {{date}}\n\n"
+    note = vault.create_note(
+        db, settings,
+        title=today,
+        content=template_service.render(template),
+        kind="daily",
+    )
+    return _to_out(settings, note, db=db)
 
 
 @router.get("/{note_id}", response_model=schemas.NoteOut)

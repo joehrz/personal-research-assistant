@@ -97,6 +97,29 @@ class NoteIndex(Base):
     modified_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+def now_local() -> datetime:
+    """Local wall-clock time, like Task.scheduled_at — day boundaries in
+    time-tracking analytics must match the user's day, not UTC's."""
+    return datetime.now().replace(microsecond=0)
+
+
+class TimeEntry(Base):
+    """A tracked focus session; at most one entry runs (ended_at IS NULL)."""
+
+    __tablename__ = "time_entries"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    label: Mapped[str] = mapped_column(String(300), default="")
+    task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=now_local)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class CalendarFeed(Base):
     """A subscribed iCalendar (ICS) URL — e.g. a Google Calendar secret
     address — shown read-only alongside scheduled tasks."""
