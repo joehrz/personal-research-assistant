@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <span class="dot"></span>
+      <h1>Clip to Research Assistant</h1>
+      <span id="status"></span>
+    </header>
+    <textarea id="text" rows="7" placeholder="Selected text appears here — or write anything…"></textarea>
+    <input id="source-title" placeholder="Source title" />
+    <input id="source-url" placeholder="Source URL" />
+    <div class="row">
+      <label class="task-toggle">
+        <input type="checkbox" id="as-task" />
+        Save as task
+      </label>
+      <button id="save">Save <kbd>Ctrl ⏎</kbd></button>
+    </div>
+  </body>
+  <script src="popup.js"></script>
+</html>

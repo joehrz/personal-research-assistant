@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Research Assistant Clipper",
+  "version": "0.1.0",
+  "description": "Clip selections and pages to your local Research Assistant inbox, with source URL and title attached.",
+  "permissions": ["activeTab", "scripting", "contextMenus"],
+  "host_permissions": ["http://127.0.0.1:8734/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Clip to Research Assistant"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "clip-selection": {
+      "suggested_key": { "default": "Alt+Shift+C" },
+      "description": "Clip the current selection (or page) straight to the inbox"
+    }
+  }
+}
