@@ -1,14 +1,36 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import schemas
 from ..deps import get_db
 from ..models import Source
+from ..services import doi as doi_service
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
+
+
+@router.post("/lookup", response_model=schemas.SourceLookupOut)
+def lookup(body: schemas.SourceLookupIn):
+    try:
+        result = doi_service.lookup(body.query)
+    except Exception as exc:  # network failures surface as a clean 502
+        raise HTTPException(status_code=502, detail=f"Lookup failed: {exc}") from exc
+    if result is None:
+        raise HTTPException(status_code=404, detail="No DOI or arXiv id found in query")
+    return result
+
+
+@router.get("/export.bib", response_class=PlainTextResponse)
+def export_bibtex(db: Session = Depends(get_db)):
+    sources = db.execute(select(Source).order_by(Source.created_at)).scalars().all()
+    return PlainTextResponse(
+        doi_service.to_bibtex(sources),
+        headers={"Content-Disposition": 'attachment; filename="sources.bib"'},
+    )
 
 
 @router.get("", response_model=list[schemas.SourceOut])

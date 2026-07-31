@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { BookMarked, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { BookMarked, ChevronDown, ChevronRight, Download, ExternalLink, Plus, Sparkle, StickyNote, Trash2 } from "lucide-react";
 import clsx from "clsx";
-import { api, type Source } from "../api";
+import { api, type NoteMeta, type Source } from "../api";
 
 const STATUS: { key: Source["status"]; label: string; cls: string }[] = [
   { key: "to_read", label: "To read", cls: "text-amber-400 bg-amber-400/10" },
@@ -12,7 +13,24 @@ const STATUS: { key: Source["status"]; label: string; cls: string }[] = [
 export default function SourcesView() {
   const [sources, setSources] = useState<Source[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", url: "", doi: "", authors: "", kind: "paper" });
+  const [form, setForm] = useState({ title: "", url: "", doi: "", authors: "", kind: "paper", year: "", venue: "" });
+  const [lookupQuery, setLookupQuery] = useState("");
+  const [lookupState, setLookupState] = useState<"idle" | "busy" | "error">("idle");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [linkedNotes, setLinkedNotes] = useState<Record<string, NoteMeta[]>>({});
+  const navigate = useNavigate();
+
+  const toggleExpand = async (id: string) => {
+    if (expanded === id) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(id);
+    if (!linkedNotes[id]) {
+      const notes = await api.listNotes({ source_id: id });
+      setLinkedNotes((prev) => ({ ...prev, [id]: notes }));
+    }
+  };
 
   const load = useCallback(async () => setSources(await api.listSources()), []);
 
@@ -27,11 +45,34 @@ export default function SourcesView() {
       url: form.url.trim(),
       doi: form.doi.trim(),
       kind: form.kind,
+      year: form.year.trim() ? Number(form.year) : null,
+      venue: form.venue.trim(),
       authors: form.authors.split(",").map((a) => a.trim()).filter(Boolean),
     });
-    setForm({ title: "", url: "", doi: "", authors: "", kind: "paper" });
+    setForm({ title: "", url: "", doi: "", authors: "", kind: "paper", year: "", venue: "" });
     setShowForm(false);
     void load();
+  };
+
+  const autofill = async () => {
+    if (!lookupQuery.trim()) return;
+    setLookupState("busy");
+    try {
+      const r = await api.lookupSource(lookupQuery);
+      setForm({
+        title: r.title,
+        url: r.url,
+        doi: r.doi,
+        authors: r.authors.join(", "),
+        kind: r.kind,
+        year: r.year ? String(r.year) : "",
+        venue: r.venue,
+      });
+      setLookupState("idle");
+      setLookupQuery("");
+    } catch {
+      setLookupState("error");
+    }
   };
 
   const cycleStatus = async (s: Source) => {
@@ -55,16 +96,45 @@ export default function SourcesView() {
           <h2 className="text-xl font-semibold">Sources</h2>
           <p className="text-sm text-ink-300 mt-1">Papers, articles, and books — your reading list.</p>
         </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-1.5 rounded-xl bg-accent-500 hover:bg-accent-400 text-white text-sm font-medium px-4 py-2 transition-colors"
-        >
-          <Plus size={15} /> Add source
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/api/sources/export.bib"
+            download
+            className="flex items-center gap-1.5 rounded-xl bg-ink-800 hover:bg-ink-700 text-ink-300 hover:text-ink-100 text-sm px-4 py-2 transition-colors"
+            title="Export all sources as BibTeX"
+          >
+            <Download size={14} /> .bib
+          </a>
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="flex items-center gap-1.5 rounded-xl bg-accent-500 hover:bg-accent-400 text-white text-sm font-medium px-4 py-2 transition-colors"
+          >
+            <Plus size={15} /> Add source
+          </button>
+        </div>
       </header>
 
       {showForm && (
         <div className="mb-6 rounded-xl border border-ink-800 bg-ink-900 p-4 grid grid-cols-2 gap-3">
+          <div className="col-span-2 flex gap-2">
+            <input
+              className={clsx(input, "flex-1")}
+              placeholder="Autofill from DOI, arXiv id, or paper URL…"
+              value={lookupQuery}
+              onChange={(e) => setLookupQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void autofill()}
+            />
+            <button onClick={() => void autofill()} disabled={lookupState === "busy"}
+              className="flex items-center gap-1.5 rounded-lg bg-ink-800 hover:bg-ink-700 px-3 text-xs text-ink-300 hover:text-ink-100 transition-colors">
+              <Sparkle size={13} className="text-accent-400" />
+              {lookupState === "busy" ? "Fetching…" : "Fetch metadata"}
+            </button>
+          </div>
+          {lookupState === "error" && (
+            <p className="col-span-2 -mt-2 text-xs text-red-400">
+              Couldn't resolve that — check the DOI/arXiv id (needs internet).
+            </p>
+          )}
           <input className={clsx(input, "col-span-2")} placeholder="Title *" value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <input className={input} placeholder="Authors (comma-separated)" value={form.authors}
@@ -79,6 +149,10 @@ export default function SourcesView() {
             onChange={(e) => setForm({ ...form, url: e.target.value })} />
           <input className={input} placeholder="DOI" value={form.doi}
             onChange={(e) => setForm({ ...form, doi: e.target.value })} />
+          <input className={input} placeholder="Year" value={form.year}
+            onChange={(e) => setForm({ ...form, year: e.target.value })} />
+          <input className={input} placeholder="Venue (journal / conference)" value={form.venue}
+            onChange={(e) => setForm({ ...form, venue: e.target.value })} />
           <div className="col-span-2 flex justify-end">
             <button onClick={() => void create()}
               className="rounded-lg bg-accent-500 hover:bg-accent-400 text-white text-sm font-medium px-4 py-2 transition-colors">
@@ -97,32 +171,70 @@ export default function SourcesView() {
         )}
         {sources.map((s) => {
           const st = STATUS.find((x) => x.key === s.status)!;
+          const isOpen = expanded === s.id;
+          const notes = linkedNotes[s.id];
           return (
-            <div key={s.id} className="group flex items-center gap-3 rounded-xl border border-ink-800 bg-ink-900 px-4 py-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{s.title}</p>
-                <p className="text-xs text-ink-500 truncate">
-                  <span className="uppercase tracking-wide text-[10px] mr-2 text-ink-300">{s.kind}</span>
-                  {s.authors.join(", ")}
-                  {s.doi && <span className="ml-2 font-mono">{s.doi}</span>}
-                </p>
-              </div>
-              <div className="ml-auto flex items-center gap-2 shrink-0">
-                {s.url && (
-                  <a href={s.url} target="_blank" rel="noreferrer"
-                    className="text-ink-500 hover:text-accent-400 transition-colors">
-                    <ExternalLink size={14} />
-                  </a>
-                )}
-                <button onClick={() => void cycleStatus(s)}
-                  className={clsx("rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors", st.cls)}>
-                  {st.label}
+            <div key={s.id} className="group rounded-xl border border-ink-800 bg-ink-900">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <button onClick={() => void toggleExpand(s.id)}
+                  className="flex items-center gap-2 min-w-0 text-left">
+                  {isOpen ? <ChevronDown size={14} className="shrink-0 text-ink-500" />
+                          : <ChevronRight size={14} className="shrink-0 text-ink-500" />}
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium truncate">{s.title}</span>
+                    <span className="block text-xs text-ink-500 truncate">
+                      <span className="uppercase tracking-wide text-[10px] mr-2 text-ink-300">{s.kind}</span>
+                      {s.authors.join(", ")}
+                      {s.year && <span className="ml-2">{s.year}</span>}
+                      {s.venue && <span className="ml-2 italic">{s.venue}</span>}
+                      {s.doi && <span className="ml-2 font-mono">{s.doi}</span>}
+                    </span>
+                  </span>
                 </button>
-                <button onClick={() => void remove(s)}
-                  className="opacity-0 group-hover:opacity-100 text-ink-500 hover:text-red-400 transition-all">
-                  <Trash2 size={13} />
-                </button>
+                <div className="ml-auto flex items-center gap-2 shrink-0">
+                  {s.url && (
+                    <a href={s.url} target="_blank" rel="noreferrer"
+                      className="text-ink-500 hover:text-accent-400 transition-colors">
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
+                  <button onClick={() => void cycleStatus(s)}
+                    className={clsx("rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors", st.cls)}>
+                    {st.label}
+                  </button>
+                  <button onClick={() => void remove(s)}
+                    className="opacity-0 group-hover:opacity-100 text-ink-500 hover:text-red-400 transition-all">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
+              {isOpen && (
+                <div className="border-t border-ink-850 px-4 py-2.5">
+                  <p className="text-[10px] uppercase tracking-wide text-ink-500 mb-1.5">
+                    Notes from this source
+                  </p>
+                  {notes === undefined ? (
+                    <p className="text-xs text-ink-500">Loading…</p>
+                  ) : notes.length === 0 ? (
+                    <p className="text-xs text-ink-500">
+                      Nothing linked yet — open a note and use "Link source…".
+                    </p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {notes.map((n) => (
+                        <button key={n.id} onClick={() => navigate(`/notes/${n.id}`)}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-ink-100 hover:bg-ink-850 transition-colors">
+                          <StickyNote size={13} className="shrink-0 text-accent-400" />
+                          <span className="truncate">{n.title || "Untitled"}</span>
+                          <span className="ml-auto shrink-0 text-[11px] text-ink-500">
+                            {new Date(n.modified_at + "Z").toLocaleDateString()}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

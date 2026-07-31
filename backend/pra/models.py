@@ -47,6 +47,9 @@ class Task(Base):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     duration_min: Mapped[int] = mapped_column(Integer, default=60)
+    # canonical recurrence: "" | daily | weekdays | weekly:<0-6> | monthly:<1-31>
+    # | every:<n>:days | every:<n>:weeks
+    recurrence: Mapped[str] = mapped_column(String(40), default="")
     project_id: Mapped[str | None] = mapped_column(
         ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
     )
@@ -66,6 +69,8 @@ class Source(Base):
     authors: Mapped[list] = mapped_column(JSON, default=list)
     url: Mapped[str] = mapped_column(String(1000), default="")
     doi: Mapped[str] = mapped_column(String(200), default="")
+    year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    venue: Mapped[str] = mapped_column(String(300), default="")  # journal / conference
     kind: Mapped[str] = mapped_column(String(20), default="article")  # paper|article|book|video|other
     status: Mapped[str] = mapped_column(String(20), default="to_read")  # to_read|reading|read
     notes: Mapped[str] = mapped_column(Text, default="")
@@ -92,6 +97,29 @@ class NoteIndex(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     modified_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+def now_local() -> datetime:
+    """Local wall-clock time, like Task.scheduled_at — day boundaries in
+    time-tracking analytics must match the user's day, not UTC's."""
+    return datetime.now().replace(microsecond=0)
+
+
+class TimeEntry(Base):
+    """A tracked focus session; at most one entry runs (ended_at IS NULL)."""
+
+    __tablename__ = "time_entries"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    label: Mapped[str] = mapped_column(String(300), default="")
+    task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=now_local)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class CalendarFeed(Base):

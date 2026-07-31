@@ -86,7 +86,78 @@ docs/               BRAINSTORM.md, PLAN.md
   posts to `/api/capture` on 127.0.0.1 with source URL/title. Backend CORS
   allows `chrome-extension://` origins.
 
-## Explicitly deferred (later phases)
+## Phase 3 (built)
 
-Wiki-links/backlinks, weekly review/resurfacing, AI/semantic search, mobile
-capture, two-way calendar write-back.
+- **Wiki-links** (`pra/services/wikilinks.py`): `[[Title]]` / `[[Title|label]]`
+  resolved case-insensitively to note ids at save/reindex time and stored in
+  the `links` table (kind `wikilink`) — rename-safe because the id is stored.
+  Reindex resolves in a second pass so cross-file links work regardless of
+  file order. Endpoints: `NoteOut.links` (outgoing) and
+  `GET /api/notes/{id}/backlinks`. Preview renders resolved links as
+  navigation; a "Linked from" panel lists backlinks.
+- **Weekly review** (`pra/services/review.py`, `GET /api/review`): 7-day
+  throughput stats, inbox backlog, stale tasks (overdue > 3 days, or dateless
+  and created > 21 days ago) with quick actions, resurfaced notes (non-inbox,
+  untouched > 45 days, random 5 — "Still relevant ✓" bumps `modified_at` via
+  an empty PATCH), and active-project open-task counts.
+
+## Phase 4 (built) — no-AI direction confirmed
+
+- **Recurring tasks** (`pra/services/recurrence.py`): NL phrases (`every day`,
+  `weekdays`, `every monday`, `every 2 weeks`, `monthly`…) parsed into a
+  canonical recurrence string on `Task.recurrence` (added via `_ensure_column`
+  migration). Completing a recurring task keeps the completed row as history
+  and spawns the next occurrence from `max(due, today)` — so clearing a
+  backlog of missed occurrences never piles up duplicates. Time-of-day is
+  preserved for scheduled recurring tasks.
+- **Wiki-link autocomplete** (NotesView): typing `[[` opens a title
+  suggestion panel (filter-as-you-type, arrows/Enter/Tab/Esc).
+- **Source ↔ note linking**: notes can be linked to a source from the editor
+  (dropdown, unlink chip, and one-click "New source from page" using the
+  clip's URL/title); `GET /api/notes?source_id=` powers a per-source
+  "everything from this paper" panel in SourcesView.
+
+## Phase 5 (built)
+
+- **Focus timer & time tracking** (`pra/routers/time.py`, `TimeEntry` model):
+  start/stop/current endpoints (starting stops the running entry), entries
+  stored in local wall-clock time to match `scheduled_at` day boundaries;
+  `/api/time/summary` groups minutes by day and project for the Review
+  screen's "where did my week go" bars. Sidebar TimerWidget polls + ticks;
+  tasks get a ▶ start-focus button that inherits label/project.
+- **Note templates** (`pra/services/templates.py`): editable Markdown files in
+  `vault/templates/` (excluded from note reindexing); defaults seeded on
+  startup, never overwritten; `{{date}}`/`{{title}}` placeholders.
+- **Daily notes**: `POST /api/notes/daily/today` gets-or-creates today's note
+  (kind `daily`, titled with the ISO date) from the `daily` template.
+- **Mobile capture PWA**: `#/capture` full-screen capture route,
+  `manifest.webmanifest` + minimal network-first service worker + generated
+  icons; served over LAN with `--host 0.0.0.0` and installable via
+  Add to Home Screen.
+
+## Phase 6 (built)
+
+- **DOI/arXiv autofill + BibTeX** (`pra/services/doi.py`): Crossref and arXiv
+  metadata lookup with pure-function parsers (unit-tested offline);
+  `POST /api/sources/lookup`, `GET /api/sources/export.bib` with de-duplicated
+  citation keys (`kerbl2023splatting`, `…2`). Sources gain `year`/`venue`.
+- **Asset uploads** (`pra/routers/assets.py`): paste images/files into the
+  editor → stored under `vault/assets/<yyyy-mm>/`, served at `/vault-assets/…`
+  (deliberately NOT `/assets`, which the built frontend bundle mount uses).
+- **Trash** (vault service): delete moves the file to `<data>/trash/` with a
+  timestamp prefix; list/restore/purge endpoints + Trash screen; 30-day
+  auto-purge at startup.
+- **Vault backup** (`pra/services/backup.py`): local git repo inside the
+  vault, auto-commit on startup + manual "Back up now"; fails soft when git
+  is absent.
+- **Kanban boards**: task status gains `doing` (open views use
+  `status != done`); `/projects/:id` board with drag-and-drop columns and the
+  project's notes.
+- **Graph view**: `GET /api/graph` (non-inbox notes + wikilink edges); canvas
+  force-directed layout with hover-neighborhood highlighting, no external
+  libraries.
+
+## Explicitly deferred
+
+AI/semantic search (skipped by decision), two-way calendar write-back,
+email-in capture, task dependencies, encryption at rest.

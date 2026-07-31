@@ -6,10 +6,13 @@ import {
   CalendarDays,
   FolderKanban,
   BookMarked,
+  Sparkles,
   Search,
   Plus,
+  Waypoints,
 } from "lucide-react";
 import clsx from "clsx";
+import TimerWidget from "./TimerWidget";
 
 const NAV = [
   { to: "/", label: "Inbox", icon: Inbox },
@@ -18,6 +21,8 @@ const NAV = [
   { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/sources", label: "Sources", icon: BookMarked },
+  { to: "/graph", label: "Graph", icon: Waypoints },
+  { to: "/review", label: "Review", icon: Sparkles },
 ];
 
 export default function Layout({
@@ -70,8 +75,11 @@ export default function Layout({
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto px-4 py-3 text-[11px] text-ink-500 border-t border-ink-800">
-          Local-first · your data stays on disk
+        <div className="mt-auto">
+          <TimerWidget />
+          <div className="px-4 py-3 text-[11px] text-ink-500 border-t border-ink-800">
+            Local-first · your data stays on disk
+          </div>
         </div>
       </aside>
       <main className="flex-1 min-w-0 overflow-y-auto">

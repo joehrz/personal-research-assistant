@@ -19,7 +19,12 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import Settings
 from .db import init_db, make_engine, make_sessionmaker
-from .routers import calendar, capture, notes, projects, search, sources, tasks
+from .routers import (
+    assets, backup, calendar, capture, graph, notes, projects, review, search,
+    sources, tasks, templates, time, trash,
+)
+from .services import backup as backup_service
+from .services import templates as template_service
 from .services import vault
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -46,15 +51,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    template_service.seed_defaults(settings)
     with sessionmaker() as session:
         vault.reindex(session, settings)
+    vault.purge_trash(settings, older_than_days=vault.TRASH_RETENTION_DAYS)
+    backup_service.run_backup(settings)  # snapshot the vault on every startup
 
-    for router in (capture, notes, tasks, projects, sources, search, calendar):
+    for router in (capture, notes, tasks, projects, sources, search, calendar, review,
+                   templates, time, assets, trash, backup, graph):
         app.include_router(router.router)
 
     @app.get("/api/health")
     def health():
         return {"status": "ok", "version": __version__, "data_dir": str(settings.data_dir)}
+
+    # NOTE: must not be "/assets" — that would shadow the built frontend's
+    # /assets/*.js bundles served by the dist mount below.
+    app.mount("/vault-assets", StaticFiles(directory=settings.assets_dir), name="vault-assets")
 
     if FRONTEND_DIST.exists():
         app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

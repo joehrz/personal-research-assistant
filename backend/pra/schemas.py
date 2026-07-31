@@ -45,6 +45,7 @@ class TaskCreate(BaseModel):
     due_date: date | None = None
     scheduled_at: datetime | None = None
     duration_min: int | None = Field(default=None, ge=5, le=24 * 60)
+    recurrence: str | None = None
     project_id: str | None = None
     parent_id: str | None = None
     note_id: str | None = None
@@ -61,6 +62,7 @@ class TaskUpdate(BaseModel):
     scheduled_at: datetime | None = None
     clear_scheduled_at: bool = False
     duration_min: int | None = Field(default=None, ge=5, le=24 * 60)
+    recurrence: str | None = None  # "" clears
     project_id: str | None = None
     clear_project: bool = False
 
@@ -75,6 +77,7 @@ class TaskOut(ORMModel):
     due_date: date | None
     scheduled_at: datetime | None
     duration_min: int
+    recurrence: str
     project_id: str | None
     parent_id: str | None
     note_id: str | None
@@ -89,6 +92,8 @@ class SourceCreate(BaseModel):
     authors: list[str] = []
     url: str = ""
     doi: str = ""
+    year: int | None = None
+    venue: str = ""
     kind: str = "article"
     status: str = "to_read"
     notes: str = ""
@@ -99,6 +104,8 @@ class SourceUpdate(BaseModel):
     authors: list[str] | None = None
     url: str | None = None
     doi: str | None = None
+    year: int | None = None
+    venue: str | None = None
     kind: str | None = None
     status: str | None = None
     notes: str | None = None
@@ -110,10 +117,26 @@ class SourceOut(ORMModel):
     authors: list[str]
     url: str
     doi: str
+    year: int | None
+    venue: str
     kind: str
     status: str
     notes: str
     created_at: datetime
+
+
+class SourceLookupIn(BaseModel):
+    query: str  # a DOI, arXiv id, or URL containing either
+
+
+class SourceLookupOut(BaseModel):
+    title: str
+    authors: list[str]
+    year: int | None
+    venue: str
+    doi: str
+    url: str
+    kind: str
 
 
 # ---- Notes ----------------------------------------------------------------
@@ -160,8 +183,14 @@ class NoteMeta(ORMModel):
     modified_at: datetime
 
 
+class LinkedNote(BaseModel):
+    id: str
+    title: str
+
+
 class NoteOut(NoteMeta):
     content: str = ""
+    links: list[LinkedNote] = []  # notes this note wiki-links to
 
 
 # ---- Capture --------------------------------------------------------------
@@ -236,3 +265,98 @@ class SearchHit(BaseModel):
 class SearchOut(BaseModel):
     query: str
     hits: list[SearchHit]
+
+
+# ---- Time tracking --------------------------------------------------------
+
+class TimeStartIn(BaseModel):
+    task_id: str | None = None
+    label: str = ""
+
+
+class TimeEntryOut(ORMModel):
+    id: str
+    label: str
+    task_id: str | None
+    project_id: str | None
+    started_at: datetime
+    ended_at: datetime | None
+    minutes: int = 0
+
+
+class TimeByDay(BaseModel):
+    date: str
+    minutes: int
+
+
+class TimeByProject(BaseModel):
+    project_id: str | None
+    project_name: str
+    color: str
+    minutes: int
+
+
+class TimeSummaryOut(BaseModel):
+    total_min: int
+    by_day: list[TimeByDay]
+    by_project: list[TimeByProject]
+
+
+# ---- Templates ------------------------------------------------------------
+
+class TemplateOut(BaseModel):
+    name: str
+    content: str
+
+
+# ---- Trash / backup / graph ----------------------------------------------
+
+class TrashItem(BaseModel):
+    name: str
+    title: str
+    deleted_at: str | None
+
+
+class BackupStatus(BaseModel):
+    git_available: bool
+    initialized: bool
+    last_backup: str | None
+    commits: int
+
+
+class BackupResult(BaseModel):
+    ok: bool
+    message: str
+
+
+class GraphNode(BaseModel):
+    id: str
+    title: str
+    kind: str
+
+
+class GraphEdge(BaseModel):
+    from_id: str
+    to_id: str
+
+
+class GraphOut(BaseModel):
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+
+
+# ---- Review ---------------------------------------------------------------
+
+class ProjectStat(BaseModel):
+    project: ProjectOut
+    open_tasks: int
+
+
+class ReviewOut(BaseModel):
+    completed_last_7: int
+    captured_last_7: int
+    inbox_count: int
+    open_tasks: int
+    stale_tasks: list[TaskOut]
+    resurfaced: list[NoteMeta]
+    projects: list[ProjectStat]

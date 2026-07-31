@@ -1,9 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { Eye, Pencil, Plus, Trash2, ExternalLink } from "lucide-react";
+import { BookMarked, CalendarHeart, Eye, FileText, Link2, Pencil, Plus, Trash2, ExternalLink, X } from "lucide-react";
 import clsx from "clsx";
-import { api, type Note, type NoteMeta } from "../api";
+import { api, type Note, type NoteMeta, type Source, type Template } from "../api";
+
+// Turn [[Target]] / [[Target|label]] into markdown links to resolved notes;
+// unresolved targets render as plain text with the brackets kept visible.
+function renderWikilinks(content: string, links: Note["links"]): string {
+  const byTitle = new Map(links.map((l) => [l.title.toLowerCase(), l.id]));
+  return content.replace(
+    /\[\[([^\[\]|\n]+?)(?:\|([^\[\]\n]+?))?\]\]/g,
+    (whole, target: string, label?: string) => {
+      const id = byTitle.get(target.trim().toLowerCase());
+      return id ? `[${(label ?? target).trim()}](#/notes/${id})` : whole;
+    },
+  );
+}
 
 export default function NotesView() {
   const { noteId } = useParams();
@@ -14,7 +27,26 @@ export default function NotesView() {
   const [title, setTitle] = useState("");
   const [preview, setPreview] = useState(false);
   const [saved, setSaved] = useState(true);
+  const [backlinks, setBacklinks] = useState<NoteMeta[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [wiki, setWiki] = useState<{ query: string; start: number; index: number } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const wikiMatches = useMemo(() => {
+    if (wiki === null) return [];
+    const q = wiki.query.toLowerCase();
+    return notes
+      .filter((n) => n.id !== active?.id && n.title.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [wiki, notes, active]);
+
+  const previewText = useMemo(
+    () => (active ? renderWikilinks(draft, active.links) : draft),
+    [draft, active],
+  );
 
   const loadList = useCallback(async () => {
     setNotes(await api.listNotes({ inbox: false }));
@@ -22,6 +54,8 @@ export default function NotesView() {
 
   useEffect(() => {
     void loadList();
+    api.listSources().then(setSources).catch(() => setSources([]));
+    api.listTemplates().then(setTemplates).catch(() => setTemplates([]));
   }, [loadList]);
 
   useEffect(() => {
@@ -35,6 +69,7 @@ export default function NotesView() {
       setTitle(n.title);
       setSaved(true);
     }).catch(() => navigate("/notes"));
+    api.getBacklinks(noteId).then(setBacklinks).catch(() => setBacklinks([]));
   }, [noteId, navigate]);
 
   // Debounced autosave.
@@ -43,14 +78,110 @@ export default function NotesView() {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       if (!active) return;
-      await api.updateNote(active.id, { title: nextTitle, content: nextContent });
+      const updated = await api.updateNote(active.id, { title: nextTitle, content: nextContent });
+      setActive((prev) => (prev && prev.id === updated.id ? { ...prev, links: updated.links } : prev));
       setSaved(true);
       void loadList();
     }, 600);
   };
 
+  // ---- wiki-link autocomplete ---------------------------------------------
+
+  const refreshWikiState = (value: string, cursor: number) => {
+    const before = value.slice(0, cursor);
+    const m = /\[\[([^\[\]\n]{0,60})$/.exec(before);
+    setWiki(m ? { query: m[1], start: m.index, index: 0 } : null);
+  };
+
+  const insertWikiLink = (targetTitle: string) => {
+    if (wiki === null || !textareaRef.current) return;
+    const cursor = textareaRef.current.selectionStart;
+    const next = `${draft.slice(0, wiki.start)}[[${targetTitle}]]${draft.slice(cursor)}`;
+    setDraft(next);
+    scheduleSave(title, next);
+    setWiki(null);
+    const pos = wiki.start + targetTitle.length + 4;
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(pos, pos);
+    });
+  };
+
+  const onEditorPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(e.clipboardData.files);
+    if (files.length === 0) return;
+    e.preventDefault();
+    const ta = textareaRef.current;
+    let cursor = ta ? ta.selectionStart : draft.length;
+    let next = draft;
+    for (const file of files) {
+      try {
+        const asset = await api.uploadAsset(file);
+        const insert = `${asset.markdown}\n`;
+        next = next.slice(0, cursor) + insert + next.slice(cursor);
+        cursor += insert.length;
+      } catch {
+        /* upload failed; skip this file */
+      }
+    }
+    setDraft(next);
+    scheduleSave(title, next);
+    requestAnimationFrame(() => ta?.setSelectionRange(cursor, cursor));
+  };
+
+  const onEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (wiki === null || wikiMatches.length === 0) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const delta = e.key === "ArrowDown" ? 1 : -1;
+      setWiki({ ...wiki, index: (wiki.index + delta + wikiMatches.length) % wikiMatches.length });
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      insertWikiLink(wikiMatches[wiki.index].title);
+    } else if (e.key === "Escape") {
+      setWiki(null);
+    }
+  };
+
+  // ---- source linking -----------------------------------------------------
+
+  const linkSource = async (sourceId: string) => {
+    if (!active) return;
+    const updated = await api.updateNote(active.id, { source_id: sourceId });
+    setActive({ ...active, source_id: updated.source_id });
+  };
+
+  const createSourceFromPage = async () => {
+    if (!active || !active.source_url) return;
+    const src = await api.createSource({
+      title: active.source_title || active.title,
+      url: active.source_url,
+      kind: "article",
+    });
+    setSources((prev) => [src, ...prev]);
+    await linkSource(src.id);
+  };
+
   const createNew = async () => {
     const n = await api.createNote({ title: "Untitled", content: "" });
+    await loadList();
+    navigate(`/notes/${n.id}`);
+  };
+
+  const createFromTemplate = async (t: Template) => {
+    setShowTemplates(false);
+    const today = new Date().toISOString().slice(0, 10);
+    const niceName = t.name.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+    const n = await api.createNote({
+      title: `${niceName} — ${today}`,
+      content: t.content.replaceAll("{{date}}", today).replaceAll("{{title}}", niceName),
+    });
+    await loadList();
+    navigate(`/notes/${n.id}`);
+  };
+
+  const openDaily = async () => {
+    const n = await api.dailyToday();
     await loadList();
     navigate(`/notes/${n.id}`);
   };
@@ -65,15 +196,54 @@ export default function NotesView() {
   return (
     <div className="flex h-full">
       <div className="w-72 shrink-0 border-r border-ink-800 flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-ink-800">
+        <div className="relative flex items-center px-4 py-3 border-b border-ink-800">
           <h2 className="text-sm font-semibold">Notes</h2>
-          <button
-            onClick={() => void createNew()}
-            className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
-            title="New note"
-          >
-            <Plus size={16} />
-          </button>
+          <div className="ml-auto flex items-center gap-0.5">
+            <button
+              onClick={() => navigate("/trash")}
+              className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
+              title="Trash"
+            >
+              <Trash2 size={14} />
+            </button>
+            <button
+              onClick={() => void openDaily()}
+              className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
+              title="Open today's daily note"
+            >
+              <CalendarHeart size={15} />
+            </button>
+            <button
+              onClick={() => setShowTemplates((v) => !v)}
+              className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
+              title="New note from template"
+            >
+              <FileText size={15} />
+            </button>
+            <button
+              onClick={() => void createNew()}
+              className="rounded-md p-1.5 text-ink-300 hover:bg-ink-800 hover:text-ink-100 transition-colors"
+              title="New blank note"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+          {showTemplates && (
+            <div className="absolute right-2 top-full z-30 mt-1 w-52 rounded-lg border border-ink-700 bg-ink-900 py-1 shadow-2xl">
+              <p className="px-3 py-1 text-[10px] uppercase tracking-wide text-ink-500">
+                New from template
+              </p>
+              {templates.filter((t) => t.name !== "daily").map((t) => (
+                <button
+                  key={t.name}
+                  onClick={() => void createFromTemplate(t)}
+                  className="block w-full px-3 py-1.5 text-left text-sm text-ink-300 hover:bg-ink-800 hover:text-ink-100"
+                >
+                  {t.name.replace(/-/g, " ")}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="overflow-y-auto">
           {notes.map((n) => (
@@ -128,30 +298,108 @@ export default function NotesView() {
               <Trash2 size={14} />
             </button>
           </div>
-          {active.source_url && (
-            <a
-              href={active.source_url}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 px-6 py-2 text-xs text-accent-400 border-b border-ink-850 hover:underline"
-            >
-              <ExternalLink size={12} /> {active.source_title || active.source_url}
-            </a>
-          )}
+          <div className="flex items-center gap-3 px-6 py-2 border-b border-ink-850 text-xs">
+            {active.source_id ? (
+              <span className="flex items-center gap-1.5 rounded-full bg-ink-800 px-2.5 py-1 text-ink-100">
+                <BookMarked size={12} className="text-accent-400" />
+                {sources.find((s) => s.id === active.source_id)?.title ?? "Source"}
+                <button onClick={() => void linkSource("")}
+                  className="text-ink-500 hover:text-red-400 transition-colors" title="Unlink source">
+                  <X size={11} />
+                </button>
+              </span>
+            ) : (
+              <>
+                <select
+                  value=""
+                  onChange={(e) => e.target.value && void linkSource(e.target.value)}
+                  className="rounded-md border border-ink-700 bg-ink-850 px-2 py-1 text-xs text-ink-300 outline-none focus:border-accent-500"
+                >
+                  <option value="">Link source…</option>
+                  {sources.map((s) => (
+                    <option key={s.id} value={s.id}>{s.title}</option>
+                  ))}
+                </select>
+                {active.source_url && (
+                  <button onClick={() => void createSourceFromPage()}
+                    className="rounded-md px-2 py-1 text-ink-300 hover:bg-ink-800 transition-colors">
+                    + New source from page
+                  </button>
+                )}
+              </>
+            )}
+            {active.source_url && (
+              <a href={active.source_url} target="_blank" rel="noreferrer"
+                className="ml-auto flex items-center gap-1.5 text-accent-400 hover:underline truncate max-w-[45%]">
+                <ExternalLink size={12} /> {active.source_title || active.source_url}
+              </a>
+            )}
+          </div>
           {preview ? (
             <div className="flex-1 overflow-y-auto px-8 py-6 prose-md">
-              <ReactMarkdown>{draft}</ReactMarkdown>
+              <ReactMarkdown>{previewText}</ReactMarkdown>
             </div>
           ) : (
-            <textarea
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value);
-                scheduleSave(title, e.target.value);
-              }}
-              className="flex-1 w-full bg-transparent px-8 py-6 outline-none resize-none font-mono text-[14px] leading-relaxed"
-              placeholder="Write in Markdown…"
-            />
+            <div className="relative flex-1 flex">
+              <textarea
+                ref={textareaRef}
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  scheduleSave(title, e.target.value);
+                  refreshWikiState(e.target.value, e.target.selectionStart);
+                }}
+                onKeyDown={onEditorKeyDown}
+                onPaste={(e) => void onEditorPaste(e)}
+                onClick={(e) =>
+                  refreshWikiState(e.currentTarget.value, e.currentTarget.selectionStart)
+                }
+                onBlur={() => setTimeout(() => setWiki(null), 150)}
+                className="flex-1 w-full bg-transparent px-8 py-6 outline-none resize-none font-mono text-[14px] leading-relaxed"
+                placeholder="Write in Markdown…  Link other notes with [[Note Title]]"
+              />
+              {wiki !== null && wikiMatches.length > 0 && (
+                <div className="absolute left-8 top-2 z-30 w-72 rounded-lg border border-ink-700 bg-ink-900 shadow-2xl overflow-hidden">
+                  <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-ink-500">
+                    Link to note — ⏎ to insert
+                  </p>
+                  {wikiMatches.map((n, i) => (
+                    <button
+                      key={n.id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        insertWikiLink(n.title);
+                      }}
+                      onMouseEnter={() => setWiki({ ...wiki, index: i })}
+                      className={clsx(
+                        "block w-full truncate px-3 py-1.5 text-left text-sm",
+                        i === wiki.index ? "bg-ink-800 text-ink-100" : "text-ink-300",
+                      )}
+                    >
+                      {n.title || "Untitled"}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {backlinks.length > 0 && (
+            <div className="border-t border-ink-800 px-8 py-3">
+              <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-500 mb-2">
+                <Link2 size={12} /> Linked from
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {backlinks.map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => navigate(`/notes/${b.id}`)}
+                    className="rounded-full bg-ink-800 hover:bg-ink-700 px-3 py-1 text-xs text-ink-100 transition-colors"
+                  >
+                    {b.title || "Untitled"}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       ) : (

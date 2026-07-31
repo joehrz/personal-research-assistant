@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Archive, Plus } from "lucide-react";
 import { api, type Project, type Task } from "../api";
 
@@ -9,6 +10,7 @@ export default function ProjectsView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const load = useCallback(async () => {
     const [p, t] = await Promise.all([api.listProjects(), api.listTasks("all")]);
@@ -67,19 +69,26 @@ export default function ProjectsView() {
 
       <div className="grid grid-cols-2 gap-3">
         {projects.map((p) => (
-          <div key={p.id} className="group rounded-xl border border-ink-800 bg-ink-900 p-4">
+          <div
+            key={p.id}
+            onClick={() => navigate(`/projects/${p.id}`)}
+            className="group cursor-pointer rounded-xl border border-ink-800 bg-ink-900 p-4 hover:border-accent-500 transition-colors"
+          >
             <div className="flex items-center gap-2.5">
               <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color }} />
               <span className="font-medium text-sm">{p.name}</span>
               <button
-                onClick={() => void archive(p)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void archive(p);
+                }}
                 title="Archive"
                 className="ml-auto opacity-0 group-hover:opacity-100 text-ink-500 hover:text-ink-100 transition-all"
               >
                 <Archive size={14} />
               </button>
             </div>
-            <p className="mt-2 text-xs text-ink-500">{openCount(p.id)} open tasks</p>
+            <p className="mt-2 text-xs text-ink-500">{openCount(p.id)} open tasks · board →</p>
           </div>
         ))}
         {projects.length === 0 && (

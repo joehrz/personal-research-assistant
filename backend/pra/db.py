@@ -41,6 +41,9 @@ def init_db(engine: Engine) -> None:
     Base.metadata.create_all(engine)
     with engine.begin() as conn:
         _ensure_column(conn, "tasks", "duration_min", "INTEGER NOT NULL DEFAULT 60")
+        _ensure_column(conn, "tasks", "recurrence", "VARCHAR(40) NOT NULL DEFAULT ''")
+        _ensure_column(conn, "sources", "year", "INTEGER")
+        _ensure_column(conn, "sources", "venue", "VARCHAR(300) NOT NULL DEFAULT ''")
         conn.execute(
             text(
                 """

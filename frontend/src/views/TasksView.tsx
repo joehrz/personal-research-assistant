@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Circle, CheckCircle2, Trash2, CalendarDays, Clock } from "lucide-react";
+import { Circle, CheckCircle2, Trash2, CalendarDays, Clock, Play, Repeat } from "lucide-react";
 import clsx from "clsx";
 import { api, type Project, type Task } from "../api";
+import { notifyTimerChanged } from "../components/TimerWidget";
 
 const VIEWS = [
   { key: "today", label: "Today" },
@@ -72,6 +73,11 @@ export default function TasksView() {
     void load();
   };
 
+  const focusOn = async (task: Task) => {
+    await api.startTimer({ task_id: task.id });
+    notifyTimerChanged();
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-8 py-8">
       <header className="mb-5">
@@ -83,7 +89,7 @@ export default function TasksView() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void add()}
-          placeholder='Add a task… e.g. "review paper draft friday 2pm #thesis p1 @deep-work"'
+          placeholder='Add a task… e.g. "review draft friday 2pm #thesis p1" or "lab log every weekday 9am"'
           className="w-full rounded-xl border border-ink-700 bg-ink-900 px-4 py-3 text-sm outline-none focus:border-accent-500 placeholder:text-ink-500 transition-colors"
         />
         {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
@@ -133,6 +139,9 @@ export default function TasksView() {
                 {task.title}
               </span>
               <span className="ml-auto flex items-center gap-2 shrink-0 text-[11px]">
+                {task.recurrence && (
+                  <Repeat size={11} className="text-accent-400" aria-label="Recurring" />
+                )}
                 {task.tags.map((t) => (
                   <span key={t} className="text-ink-500">@{t}</span>
                 ))}
@@ -165,6 +174,15 @@ export default function TasksView() {
                   >
                     <CalendarDays size={11} /> {due.text}
                   </span>
+                )}
+                {task.status === "todo" && (
+                  <button
+                    onClick={() => void focusOn(task)}
+                    title="Start focus timer on this task"
+                    className="opacity-0 group-hover:opacity-100 text-ink-500 hover:text-accent-400 transition-all"
+                  >
+                    <Play size={13} />
+                  </button>
                 )}
                 <button
                   onClick={() => void remove(task)}

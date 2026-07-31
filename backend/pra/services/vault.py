@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path  # noqa: F401  (used in restore_from_trash)
 
 import yaml
 from sqlalchemy import select
@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from ..config import Settings
 from ..models import NoteIndex, new_id, utcnow
 from . import search as search_service
+from . import wikilinks
 
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 
@@ -138,6 +139,7 @@ def create_note(
     session.flush()  # apply column defaults (timestamps) before writing the file
     _write_note_file(settings, note, content)
     search_service.index_note(session, note, content)
+    wikilinks.update_for_note(session, note, content)
     session.commit()
     return note
 
@@ -167,26 +169,98 @@ def update_note(
 
     _write_note_file(settings, note, content)
     search_service.index_note(session, note, content)
+    wikilinks.update_for_note(session, note, content)
     session.commit()
     return note
 
 
 def delete_note(session: Session, settings: Settings, note: NoteIndex) -> None:
+    """Delete = move the file to the trash folder (restorable for 30 days)."""
     path = settings.vault_dir / note.path
     if path.exists():
-        path.unlink()
+        settings.trash_dir.mkdir(parents=True, exist_ok=True)
+        stamp = utcnow().strftime("%Y%m%dT%H%M%S")
+        target = settings.trash_dir / f"{stamp}__{path.name}"
+        n = 2
+        while target.exists():
+            target = settings.trash_dir / f"{stamp}__{n}__{path.name}"
+            n += 1
+        path.replace(target)
     search_service.remove(session, "note", note.id)
+    wikilinks.remove_all(session, note.id)
     session.delete(note)
     session.commit()
+
+
+TRASH_RETENTION_DAYS = 30
+
+
+def list_trash(settings: Settings) -> list[dict]:
+    out = []
+    for path in sorted(settings.trash_dir.glob("*.md"), reverse=True):
+        meta, _ = split_frontmatter(path.read_text(encoding="utf-8"))
+        stamp = path.name.split("__", 1)[0]
+        try:
+            deleted_at = datetime.strptime(stamp, "%Y%m%dT%H%M%S").isoformat()
+        except ValueError:
+            deleted_at = None
+        out.append({
+            "name": path.name,
+            "title": str(meta.get("title") or path.stem),
+            "deleted_at": deleted_at,
+        })
+    return out
+
+
+def restore_from_trash(session: Session, settings: Settings, name: str) -> NoteIndex | None:
+    src = settings.trash_dir / name
+    if not src.exists() or src.suffix != ".md" or "/" in name or "\\" in name:
+        return None
+    original = name.split("__")[-1]
+    target = settings.notes_dir / original
+    n = 2
+    while target.exists():
+        target = settings.notes_dir / f"{Path(original).stem}-{n}.md"
+        n += 1
+    src.replace(target)
+    reindex(session, settings)
+    meta, _ = split_frontmatter(target.read_text(encoding="utf-8"))
+    note_id = str(meta.get("id") or "")
+    return session.get(NoteIndex, note_id) if note_id else None
+
+
+def purge_trash(settings: Settings, name: str | None = None,
+                older_than_days: int | None = None) -> int:
+    """Delete a specific trashed file, or everything older than N days."""
+    removed = 0
+    for path in settings.trash_dir.glob("*.md"):
+        if name is not None:
+            if path.name == name:
+                path.unlink()
+                removed += 1
+            continue
+        if older_than_days is not None:
+            stamp = path.name.split("__", 1)[0]
+            try:
+                deleted = datetime.strptime(stamp, "%Y%m%dT%H%M%S")
+            except ValueError:
+                continue
+            if (utcnow() - deleted).days > older_than_days:
+                path.unlink()
+                removed += 1
+    return removed
 
 
 def reindex(session: Session, settings: Settings) -> int:
     """Rebuild the note index from the files on disk. Returns note count."""
     settings.ensure_dirs()
     seen_ids: set[str] = set()
+    indexed: list[tuple[NoteIndex, str]] = []
     count = 0
     for path in sorted(settings.vault_dir.rglob("*.md")):
         rel = str(path.relative_to(settings.vault_dir))
+        if rel.replace("\\", "/").startswith("templates/"):
+            continue  # templates are scaffolding, not notes
         meta, content = split_frontmatter(path.read_text(encoding="utf-8"))
         note_id = str(meta.get("id") or new_id())
         if note_id in seen_ids:  # duplicated id in a copied file: mint a new one
@@ -216,12 +290,20 @@ def reindex(session: Session, settings: Settings) -> int:
                 except ValueError:
                     pass
         search_service.index_note(session, note, content.strip("\n"))
+        indexed.append((note, content.strip("\n")))
         count += 1
 
     # Drop index rows whose files vanished.
     for note in session.execute(select(NoteIndex)).scalars():
         if note.id not in seen_ids:
             search_service.remove(session, "note", note.id)
+            wikilinks.remove_all(session, note.id)
             session.delete(note)
+    session.flush()
+
+    # Second pass: resolve wiki-links only after every note is indexed, so
+    # links between files (in any order) resolve correctly.
+    for note, content in indexed:
+        wikilinks.update_for_note(session, note, content)
     session.commit()
     return count
