@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Circle, CheckCircle2, Trash2, CalendarDays, Clock } from "lucide-react";
+import { Circle, CheckCircle2, Trash2, CalendarDays, Clock, Repeat } from "lucide-react";
 import clsx from "clsx";
 import { api, type Project, type Task } from "../api";
 
@@ -83,7 +83,7 @@ export default function TasksView() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void add()}
-          placeholder='Add a task… e.g. "review paper draft friday 2pm #thesis p1 @deep-work"'
+          placeholder='Add a task… e.g. "review draft friday 2pm #thesis p1" or "lab log every weekday 9am"'
           className="w-full rounded-xl border border-ink-700 bg-ink-900 px-4 py-3 text-sm outline-none focus:border-accent-500 placeholder:text-ink-500 transition-colors"
         />
         {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
@@ -133,6 +133,9 @@ export default function TasksView() {
                 {task.title}
               </span>
               <span className="ml-auto flex items-center gap-2 shrink-0 text-[11px]">
+                {task.recurrence && (
+                  <Repeat size={11} className="text-accent-400" aria-label="Recurring" />
+                )}
                 {task.tags.map((t) => (
                   <span key={t} className="text-ink-500">@{t}</span>
                 ))}

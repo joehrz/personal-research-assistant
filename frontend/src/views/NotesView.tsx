@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { Eye, Link2, Pencil, Plus, Trash2, ExternalLink } from "lucide-react";
+import { BookMarked, Eye, Link2, Pencil, Plus, Trash2, ExternalLink, X } from "lucide-react";
 import clsx from "clsx";
-import { api, type Note, type NoteMeta } from "../api";
+import { api, type Note, type NoteMeta, type Source } from "../api";
 
 // Turn [[Target]] / [[Target|label]] into markdown links to resolved notes;
 // unresolved targets render as plain text with the brackets kept visible.
@@ -28,7 +28,18 @@ export default function NotesView() {
   const [preview, setPreview] = useState(false);
   const [saved, setSaved] = useState(true);
   const [backlinks, setBacklinks] = useState<NoteMeta[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
+  const [wiki, setWiki] = useState<{ query: string; start: number; index: number } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const wikiMatches = useMemo(() => {
+    if (wiki === null) return [];
+    const q = wiki.query.toLowerCase();
+    return notes
+      .filter((n) => n.id !== active?.id && n.title.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [wiki, notes, active]);
 
   const previewText = useMemo(
     () => (active ? renderWikilinks(draft, active.links) : draft),
@@ -41,6 +52,7 @@ export default function NotesView() {
 
   useEffect(() => {
     void loadList();
+    api.listSources().then(setSources).catch(() => setSources([]));
   }, [loadList]);
 
   useEffect(() => {
@@ -68,6 +80,61 @@ export default function NotesView() {
       setSaved(true);
       void loadList();
     }, 600);
+  };
+
+  // ---- wiki-link autocomplete ---------------------------------------------
+
+  const refreshWikiState = (value: string, cursor: number) => {
+    const before = value.slice(0, cursor);
+    const m = /\[\[([^\[\]\n]{0,60})$/.exec(before);
+    setWiki(m ? { query: m[1], start: m.index, index: 0 } : null);
+  };
+
+  const insertWikiLink = (targetTitle: string) => {
+    if (wiki === null || !textareaRef.current) return;
+    const cursor = textareaRef.current.selectionStart;
+    const next = `${draft.slice(0, wiki.start)}[[${targetTitle}]]${draft.slice(cursor)}`;
+    setDraft(next);
+    scheduleSave(title, next);
+    setWiki(null);
+    const pos = wiki.start + targetTitle.length + 4;
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(pos, pos);
+    });
+  };
+
+  const onEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (wiki === null || wikiMatches.length === 0) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const delta = e.key === "ArrowDown" ? 1 : -1;
+      setWiki({ ...wiki, index: (wiki.index + delta + wikiMatches.length) % wikiMatches.length });
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      insertWikiLink(wikiMatches[wiki.index].title);
+    } else if (e.key === "Escape") {
+      setWiki(null);
+    }
+  };
+
+  // ---- source linking -----------------------------------------------------
+
+  const linkSource = async (sourceId: string) => {
+    if (!active) return;
+    const updated = await api.updateNote(active.id, { source_id: sourceId });
+    setActive({ ...active, source_id: updated.source_id });
+  };
+
+  const createSourceFromPage = async () => {
+    if (!active || !active.source_url) return;
+    const src = await api.createSource({
+      title: active.source_title || active.title,
+      url: active.source_url,
+      kind: "article",
+    });
+    setSources((prev) => [src, ...prev]);
+    await linkSource(src.id);
   };
 
   const createNew = async () => {
@@ -149,30 +216,89 @@ export default function NotesView() {
               <Trash2 size={14} />
             </button>
           </div>
-          {active.source_url && (
-            <a
-              href={active.source_url}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 px-6 py-2 text-xs text-accent-400 border-b border-ink-850 hover:underline"
-            >
-              <ExternalLink size={12} /> {active.source_title || active.source_url}
-            </a>
-          )}
+          <div className="flex items-center gap-3 px-6 py-2 border-b border-ink-850 text-xs">
+            {active.source_id ? (
+              <span className="flex items-center gap-1.5 rounded-full bg-ink-800 px-2.5 py-1 text-ink-100">
+                <BookMarked size={12} className="text-accent-400" />
+                {sources.find((s) => s.id === active.source_id)?.title ?? "Source"}
+                <button onClick={() => void linkSource("")}
+                  className="text-ink-500 hover:text-red-400 transition-colors" title="Unlink source">
+                  <X size={11} />
+                </button>
+              </span>
+            ) : (
+              <>
+                <select
+                  value=""
+                  onChange={(e) => e.target.value && void linkSource(e.target.value)}
+                  className="rounded-md border border-ink-700 bg-ink-850 px-2 py-1 text-xs text-ink-300 outline-none focus:border-accent-500"
+                >
+                  <option value="">Link source…</option>
+                  {sources.map((s) => (
+                    <option key={s.id} value={s.id}>{s.title}</option>
+                  ))}
+                </select>
+                {active.source_url && (
+                  <button onClick={() => void createSourceFromPage()}
+                    className="rounded-md px-2 py-1 text-ink-300 hover:bg-ink-800 transition-colors">
+                    + New source from page
+                  </button>
+                )}
+              </>
+            )}
+            {active.source_url && (
+              <a href={active.source_url} target="_blank" rel="noreferrer"
+                className="ml-auto flex items-center gap-1.5 text-accent-400 hover:underline truncate max-w-[45%]">
+                <ExternalLink size={12} /> {active.source_title || active.source_url}
+              </a>
+            )}
+          </div>
           {preview ? (
             <div className="flex-1 overflow-y-auto px-8 py-6 prose-md">
               <ReactMarkdown>{previewText}</ReactMarkdown>
             </div>
           ) : (
-            <textarea
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value);
-                scheduleSave(title, e.target.value);
-              }}
-              className="flex-1 w-full bg-transparent px-8 py-6 outline-none resize-none font-mono text-[14px] leading-relaxed"
-              placeholder="Write in Markdown…  Link other notes with [[Note Title]]"
-            />
+            <div className="relative flex-1 flex">
+              <textarea
+                ref={textareaRef}
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  scheduleSave(title, e.target.value);
+                  refreshWikiState(e.target.value, e.target.selectionStart);
+                }}
+                onKeyDown={onEditorKeyDown}
+                onClick={(e) =>
+                  refreshWikiState(e.currentTarget.value, e.currentTarget.selectionStart)
+                }
+                onBlur={() => setTimeout(() => setWiki(null), 150)}
+                className="flex-1 w-full bg-transparent px-8 py-6 outline-none resize-none font-mono text-[14px] leading-relaxed"
+                placeholder="Write in Markdown…  Link other notes with [[Note Title]]"
+              />
+              {wiki !== null && wikiMatches.length > 0 && (
+                <div className="absolute left-8 top-2 z-30 w-72 rounded-lg border border-ink-700 bg-ink-900 shadow-2xl overflow-hidden">
+                  <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-ink-500">
+                    Link to note — ⏎ to insert
+                  </p>
+                  {wikiMatches.map((n, i) => (
+                    <button
+                      key={n.id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        insertWikiLink(n.title);
+                      }}
+                      onMouseEnter={() => setWiki({ ...wiki, index: i })}
+                      className={clsx(
+                        "block w-full truncate px-3 py-1.5 text-left text-sm",
+                        i === wiki.index ? "bg-ink-800 text-ink-100" : "text-ink-300",
+                      )}
+                    >
+                      {n.title || "Untitled"}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           {backlinks.length > 0 && (
             <div className="border-t border-ink-800 px-8 py-3">

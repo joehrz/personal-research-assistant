@@ -48,6 +48,7 @@ def capture(
             tags=parsed.tags,
             due_date=parsed.due_date,
             scheduled_at=parsed.scheduled_at,
+            recurrence=parsed.recurrence,
             notes=f"Captured from: {body.source_url}" if body.source_url else "",
         )
         if parsed.project:

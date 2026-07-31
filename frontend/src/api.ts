@@ -18,6 +18,7 @@ export interface Task {
   due_date: string | null;
   scheduled_at: string | null;
   duration_min: number;
+  recurrence: string;
   project_id: string | null;
   parent_id: string | null;
   note_id: string | null;
@@ -152,7 +153,7 @@ export const api = {
       body: JSON.stringify({ text, source_url, source_title }),
     }),
 
-  listNotes: (params: { kind?: string; inbox?: boolean; project_id?: string } = {}) =>
+  listNotes: (params: { kind?: string; inbox?: boolean; project_id?: string; source_id?: string } = {}) =>
     request<NoteMeta[]>(`/api/notes${qs(params)}`),
   getNote: (id: string) => request<Note>(`/api/notes/${id}`),
   getBacklinks: (id: string) => request<NoteMeta[]>(`/api/notes/${id}/backlinks`),

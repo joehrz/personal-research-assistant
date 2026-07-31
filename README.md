@@ -19,6 +19,9 @@ your own disk.
 - **Tasks** — natural-language entry (`friday 2pm`, `in 3 days`, `sep 1`,
   `p1`–`p4`, `#project`, `@tag`), Today/Upcoming/No-date/Done views, distinct
   due date vs. scheduled time.
+- **Recurring tasks** — `every weekday 9am`, `every monday`, `every 2 weeks`,
+  `daily`, `monthly`… Completing an occurrence keeps it as history and spawns
+  the next one (catching up a backlog never piles up duplicates).
 - **Projects** — lightweight containers created on the fly from `#project`.
 - **Sources** — papers/articles/books with authors, URL, DOI, and reading status.
 - **Search** — SQLite FTS5 full-text search across notes and tasks, in a
@@ -32,9 +35,13 @@ your own disk.
   attached; right-click, popup, or Alt+Shift+C. See
   [clipper/README.md](clipper/README.md).
 - **Wiki-links & backlinks** — write `[[Note Title]]` (or `[[Note Title|label]]`)
-  to link notes; links render as clickable in preview, and every note shows a
-  "Linked from" panel. Links are stored by id, so renaming a note doesn't
-  break them.
+  to link notes; typing `[[` pops up title autocomplete (arrows + Enter to
+  insert). Links render as clickable in preview, every note shows a "Linked
+  from" panel, and links are stored by id, so renaming a note doesn't break
+  them.
+- **Source ↔ note linking** — attach any note to a source from the editor (or
+  create a source straight from a clipped page's URL); expanding a source in
+  the Sources list shows everything you took from that paper/article.
 - **Weekly review** — one screen showing the week's throughput, inbox backlog,
   stale tasks (overdue or dateless-and-forgotten) with quick actions, a few
   resurfaced old notes so past research resurfaces instead of rotting, and
@@ -100,6 +107,9 @@ calendar.) Outlook and most other calendars offer an equivalent ICS URL.
 ## Roadmap
 
 Done: Phase 1 (capture, notes, tasks, search), Phase 2 (week calendar with
-time blocking, ICS calendar feeds, browser clipper), and Phase 3 (wiki-links
-with backlinks, weekly review/resurfacing). Next: semantic search and AI
-assistance. See [docs/BRAINSTORM.md](docs/BRAINSTORM.md) for the full roadmap.
+time blocking, ICS calendar feeds, browser clipper), Phase 3 (wiki-links with
+backlinks, weekly review/resurfacing), and Phase 4 (recurring tasks, wiki-link
+autocomplete, source↔note linking). AI features are intentionally out of
+scope. Candidate next features: focus timer with time tracking, note
+templates, daily notes, mobile capture. See
+[docs/BRAINSTORM.md](docs/BRAINSTORM.md) for the original brainstorm.

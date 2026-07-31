@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..deps import get_db
 from ..models import Project, Task, utcnow
+from ..services import recurrence as recurrence_service
 from ..services import search as search_service
 from ..services import taskparse
 
@@ -84,6 +85,8 @@ def create_task(body: schemas.TaskCreate, db: Session = Depends(get_db)):
             data.setdefault("priority", parsed.priority)
         if parsed.tags:
             data.setdefault("tags", parsed.tags)
+        if parsed.recurrence:
+            data.setdefault("recurrence", parsed.recurrence)
         if parsed.project and "project_id" not in data:
             data["project_id"] = _resolve_project(db, parsed.project).id
     if not data.get("title"):
@@ -116,6 +119,8 @@ def update_task(task_id: str, body: schemas.TaskUpdate, db: Session = Depends(ge
     if status is not None and status != task.status:
         task.status = status
         task.completed_at = utcnow() if status == "done" else None
+        if status == "done" and task.recurrence:
+            _spawn_next_occurrence(db, task)
 
     for key, value in fields.items():
         if value is not None:
@@ -124,6 +129,33 @@ def update_task(task_id: str, body: schemas.TaskUpdate, db: Session = Depends(ge
     search_service.index_task(db, task)
     db.commit()
     return task
+
+
+def _spawn_next_occurrence(db: Session, task: Task) -> None:
+    """Completing a recurring task creates its next occurrence (the completed
+    row stays as history). The next date is computed from the later of the due
+    date and today, so completing a backlog of misses doesn't pile up copies."""
+    from datetime import datetime as dt
+
+    after = max(task.due_date or date.today(), date.today())
+    next_due = recurrence_service.next_occurrence(task.recurrence, after)
+    nxt = Task(
+        title=task.title,
+        notes=task.notes,
+        priority=task.priority,
+        tags=list(task.tags or []),
+        due_date=next_due,
+        scheduled_at=(
+            dt.combine(next_due, task.scheduled_at.time()) if task.scheduled_at else None
+        ),
+        duration_min=task.duration_min,
+        recurrence=task.recurrence,
+        project_id=task.project_id,
+        note_id=task.note_id,
+    )
+    db.add(nxt)
+    db.flush()
+    search_service.index_task(db, nxt)
 
 
 @router.delete("/{task_id}", status_code=204)

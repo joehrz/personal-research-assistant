@@ -75,6 +75,7 @@ class ParsedTask:
     priority: int = 4
     project: str | None = None
     tags: list[str] = field(default_factory=list)
+    recurrence: str = ""
 
 
 def _cut(text: str, start: int, end: int) -> str:
@@ -93,9 +94,14 @@ def _next_weekday(today: date, weekday: int, force_next_week: bool) -> date:
 
 
 def parse(text: str, now: datetime | None = None) -> ParsedTask:
+    from . import recurrence as recurrence_service  # local import: avoids cycle
+
     now = now or datetime.now()
     today = now.date()
     working = text.strip()
+
+    # Recurrence first, so "every monday" isn't consumed as a plain date.
+    recurrence, working = recurrence_service.extract(working)
 
     priority = 4
     m = _PRIORITY_RE.search(working)
@@ -163,6 +169,8 @@ def parse(text: str, now: datetime | None = None) -> ParsedTask:
             due = _next_weekday(today, WEEKDAYS[m.group(2).lower()], force_next)
             working = _cut(working, m.start(), m.end())
 
+    had_explicit_date = due is not None
+
     scheduled: datetime | None = None
     m = _TIME_RE.search(working)
     if m:
@@ -184,6 +192,15 @@ def parse(text: str, now: datetime | None = None) -> ParsedTask:
     if scheduled is not None and due is None:
         due = scheduled.date()
 
+    if recurrence:
+        recurrence = recurrence_service.anchor(recurrence, due)
+        # "every friday 4pm" with no explicit date: the recurrence anchor
+        # decides the first occurrence, overriding the time-implied today.
+        if not had_explicit_date:
+            due = recurrence_service.first_due(recurrence, today)
+            if scheduled is not None:
+                scheduled = datetime.combine(due, scheduled.time())
+
     title = re.sub(r"\s+", " ", working).strip()
     return ParsedTask(
         title=title,
@@ -192,4 +209,5 @@ def parse(text: str, now: datetime | None = None) -> ParsedTask:
         priority=priority,
         project=project,
         tags=tags,
+        recurrence=recurrence,
     )

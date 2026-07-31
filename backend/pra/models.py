@@ -47,6 +47,9 @@ class Task(Base):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     duration_min: Mapped[int] = mapped_column(Integer, default=60)
+    # canonical recurrence: "" | daily | weekdays | weekly:<0-6> | monthly:<1-31>
+    # | every:<n>:days | every:<n>:weeks
+    recurrence: Mapped[str] = mapped_column(String(40), default="")
     project_id: Mapped[str | None] = mapped_column(
         ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
     )

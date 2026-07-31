@@ -42,6 +42,7 @@ def list_notes(
     kind: str | None = None,
     inbox: bool | None = None,
     project_id: str | None = None,
+    source_id: str | None = None,
     tag: str | None = None,
     db: Session = Depends(get_db),
 ):
@@ -52,6 +53,8 @@ def list_notes(
         stmt = stmt.where(NoteIndex.inbox == inbox)
     if project_id:
         stmt = stmt.where(NoteIndex.project_id == project_id)
+    if source_id:
+        stmt = stmt.where(NoteIndex.source_id == source_id)
     notes = db.execute(stmt).scalars().all()
     if tag:
         notes = [n for n in notes if tag in (n.tags or [])]
@@ -93,6 +96,9 @@ def update_note(
     note = _get_or_404(db, note_id)
     fields = body.model_dump(exclude_unset=True)
     content = fields.pop("content", None)
+    if fields.get("source_id") == "":  # empty string clears the source link
+        fields.pop("source_id")
+        note.source_id = None
     note = vault.update_note(db, settings, note, content=content, **fields)
     return _to_out(settings, note, db=db)
 

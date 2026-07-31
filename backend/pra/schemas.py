@@ -45,6 +45,7 @@ class TaskCreate(BaseModel):
     due_date: date | None = None
     scheduled_at: datetime | None = None
     duration_min: int | None = Field(default=None, ge=5, le=24 * 60)
+    recurrence: str | None = None
     project_id: str | None = None
     parent_id: str | None = None
     note_id: str | None = None
@@ -61,6 +62,7 @@ class TaskUpdate(BaseModel):
     scheduled_at: datetime | None = None
     clear_scheduled_at: bool = False
     duration_min: int | None = Field(default=None, ge=5, le=24 * 60)
+    recurrence: str | None = None  # "" clears
     project_id: str | None = None
     clear_project: bool = False
 
@@ -75,6 +77,7 @@ class TaskOut(ORMModel):
     due_date: date | None
     scheduled_at: datetime | None
     duration_min: int
+    recurrence: str
     project_id: str | None
     parent_id: str | None
     note_id: str | None

@@ -101,7 +101,23 @@ docs/               BRAINSTORM.md, PLAN.md
   untouched > 45 days, random 5 — "Still relevant ✓" bumps `modified_at` via
   an empty PATCH), and active-project open-task counts.
 
-## Explicitly deferred (later phases)
+## Phase 4 (built) — no-AI direction confirmed
 
-AI/semantic search, mobile capture, two-way calendar write-back, wiki-link
-autocomplete in the editor.
+- **Recurring tasks** (`pra/services/recurrence.py`): NL phrases (`every day`,
+  `weekdays`, `every monday`, `every 2 weeks`, `monthly`…) parsed into a
+  canonical recurrence string on `Task.recurrence` (added via `_ensure_column`
+  migration). Completing a recurring task keeps the completed row as history
+  and spawns the next occurrence from `max(due, today)` — so clearing a
+  backlog of missed occurrences never piles up duplicates. Time-of-day is
+  preserved for scheduled recurring tasks.
+- **Wiki-link autocomplete** (NotesView): typing `[[` opens a title
+  suggestion panel (filter-as-you-type, arrows/Enter/Tab/Esc).
+- **Source ↔ note linking**: notes can be linked to a source from the editor
+  (dropdown, unlink chip, and one-click "New source from page" using the
+  clip's URL/title); `GET /api/notes?source_id=` powers a per-source
+  "everything from this paper" panel in SourcesView.
+
+## Explicitly deferred
+
+AI/semantic search (skipped by decision), mobile capture, two-way calendar
+write-back, focus timer/time tracking, note templates, daily notes.
