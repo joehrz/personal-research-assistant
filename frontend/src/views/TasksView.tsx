@@ -3,6 +3,7 @@ import { Circle, CheckCircle2, Trash2, CalendarDays, Clock, Play, Repeat } from 
 import clsx from "clsx";
 import { api, type Project, type Task } from "../api";
 import { notifyTimerChanged } from "../components/TimerWidget";
+import { CAPTURE_EVENT } from "../components/QuickCapture";
 
 const VIEWS = [
   { key: "today", label: "Today" },
@@ -46,6 +47,9 @@ export default function TasksView() {
 
   useEffect(() => {
     void load();
+    const onCapture = () => void load();
+    window.addEventListener(CAPTURE_EVENT, onCapture);
+    return () => window.removeEventListener(CAPTURE_EVENT, onCapture);
   }, [load]);
 
   const projectName = (id: string | null) => projects.find((p) => p.id === id)?.name;
@@ -78,22 +82,52 @@ export default function TasksView() {
     notifyTimerChanged();
   };
 
+  // Put a task on the calendar: 9am on its due date (or tomorrow 9am when
+  // dateless), then fine-tune by dragging in the Calendar view.
+  const putOnCalendar = async (task: Task) => {
+    const base = task.due_date
+      ? new Date(task.due_date + "T09:00:00")
+      : (() => {
+          const d = new Date();
+          d.setDate(d.getDate() + 1);
+          d.setHours(9, 0, 0, 0);
+          return d;
+        })();
+    const p = (n: number) => String(n).padStart(2, "0");
+    const iso = `${base.getFullYear()}-${p(base.getMonth() + 1)}-${p(base.getDate())}T${p(base.getHours())}:00:00`;
+    await api.updateTask(task.id, {
+      scheduled_at: iso,
+      ...(task.due_date ? {} : { due_date: iso.slice(0, 10) }),
+    });
+    void load();
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-8 py-8">
       <header className="mb-5">
         <h2 className="text-xl font-semibold">Tasks</h2>
       </header>
 
-      <div className="mb-4">
+      <div className="mb-1 flex gap-2">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void add()}
-          placeholder='Add a task… e.g. "review draft friday 2pm #thesis p1" or "lab log every weekday 9am"'
-          className="w-full rounded-xl border border-ink-700 bg-ink-900 px-4 py-3 text-sm outline-none focus:border-accent-500 placeholder:text-ink-500 transition-colors"
+          placeholder='Type a task and press Enter — "review draft friday 2pm #thesis p1"'
+          className="flex-1 rounded-xl border border-ink-700 bg-ink-900 px-4 py-3 text-sm outline-none focus:border-accent-500 placeholder:text-ink-500 transition-colors"
         />
-        {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+        <button
+          onClick={() => void add()}
+          className="rounded-xl bg-accent-500 hover:bg-accent-400 text-white text-sm font-medium px-5 transition-colors"
+        >
+          Add
+        </button>
       </div>
+      {error && <p className="mb-2 text-xs text-red-400">{error}</p>}
+      <p className="mb-4 text-[11px] text-ink-500">
+        Understands dates ("friday 2pm", "in 3 days"), repeats ("every weekday 9am"),
+        priority (p1–p4), #project, and @tags. A time puts it on the calendar automatically.
+      </p>
 
       <div className="flex gap-1 mb-5">
         {VIEWS.map((v) => (
@@ -175,7 +209,16 @@ export default function TasksView() {
                     <CalendarDays size={11} /> {due.text}
                   </span>
                 )}
-                {task.status === "todo" && (
+                {task.status !== "done" && !task.scheduled_at && (
+                  <button
+                    onClick={() => void putOnCalendar(task)}
+                    title="Put on calendar (9am on due date; drag to adjust in Calendar)"
+                    className="opacity-0 group-hover:opacity-100 text-ink-500 hover:text-accent-400 transition-all"
+                  >
+                    <CalendarDays size={13} />
+                  </button>
+                )}
+                {task.status !== "done" && (
                   <button
                     onClick={() => void focusOn(task)}
                     title="Start focus timer on this task"

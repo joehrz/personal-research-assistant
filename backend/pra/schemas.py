@@ -97,6 +97,7 @@ class SourceCreate(BaseModel):
     kind: str = "article"
     status: str = "to_read"
     notes: str = ""
+    project_id: str | None = None
 
 
 class SourceUpdate(BaseModel):
@@ -109,6 +110,7 @@ class SourceUpdate(BaseModel):
     kind: str | None = None
     status: str | None = None
     notes: str | None = None
+    project_id: str | None = None
 
 
 class SourceOut(ORMModel):
@@ -122,6 +124,7 @@ class SourceOut(ORMModel):
     kind: str
     status: str
     notes: str
+    project_id: str | None
     created_at: datetime
 
 

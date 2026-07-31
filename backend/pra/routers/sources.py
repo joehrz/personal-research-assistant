@@ -34,12 +34,19 @@ def export_bibtex(db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=list[schemas.SourceOut])
-def list_sources(status: str | None = None, kind: str | None = None, db: Session = Depends(get_db)):
+def list_sources(
+    status: str | None = None,
+    kind: str | None = None,
+    project_id: str | None = None,
+    db: Session = Depends(get_db),
+):
     stmt = select(Source).order_by(Source.created_at.desc())
     if status:
         stmt = stmt.where(Source.status == status)
     if kind:
         stmt = stmt.where(Source.kind == kind)
+    if project_id:
+        stmt = stmt.where(Source.project_id == project_id)
     return db.execute(stmt).scalars().all()
 
 

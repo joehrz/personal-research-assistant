@@ -74,6 +74,9 @@ class Source(Base):
     kind: Mapped[str] = mapped_column(String(20), default="article")  # paper|article|book|video|other
     status: Mapped[str] = mapped_column(String(20), default="to_read")  # to_read|reading|read
     notes: Mapped[str] = mapped_column(Text, default="")
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Zap } from "lucide-react";
 import { api } from "../api";
 
+// Views listen for this so fresh captures appear without a manual refresh.
+export const CAPTURE_EVENT = "pra-captured";
+
 export default function QuickCapture({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
@@ -16,6 +19,7 @@ export default function QuickCapture({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       const result = await api.capture(text, sourceUrl.trim());
+      window.dispatchEvent(new Event(CAPTURE_EVENT));
       setStatus(result.kind === "task" ? "Task created ✓" : "Saved to inbox ✓");
       setText("");
       setSourceUrl("");
