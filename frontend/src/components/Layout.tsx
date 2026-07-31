@@ -3,6 +3,7 @@ import {
   Inbox,
   StickyNote,
   CheckSquare,
+  CalendarDays,
   FolderKanban,
   BookMarked,
   Search,
@@ -14,6 +15,7 @@ const NAV = [
   { to: "/", label: "Inbox", icon: Inbox },
   { to: "/notes", label: "Notes", icon: StickyNote },
   { to: "/tasks", label: "Tasks", icon: CheckSquare },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/sources", label: "Sources", icon: BookMarked },
 ];

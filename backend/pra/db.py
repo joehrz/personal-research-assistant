@@ -30,9 +30,17 @@ def make_engine(db_path: Path) -> Engine:
     return engine
 
 
+def _ensure_column(conn, table: str, column: str, ddl: str) -> None:
+    """Tiny forward-only migration: add a column if an older database lacks it."""
+    cols = [row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")]
+    if column not in cols:
+        conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+
+
 def init_db(engine: Engine) -> None:
     Base.metadata.create_all(engine)
     with engine.begin() as conn:
+        _ensure_column(conn, "tasks", "duration_min", "INTEGER NOT NULL DEFAULT 60")
         conn.execute(
             text(
                 """

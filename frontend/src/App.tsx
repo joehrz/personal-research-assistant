@@ -6,6 +6,7 @@ import QuickCapture from "./components/QuickCapture";
 import InboxView from "./views/InboxView";
 import NotesView from "./views/NotesView";
 import TasksView from "./views/TasksView";
+import CalendarView from "./views/CalendarView";
 import ProjectsView from "./views/ProjectsView";
 import SourcesView from "./views/SourcesView";
 
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="notes" element={<NotesView />} />
           <Route path="notes/:noteId" element={<NotesView />} />
           <Route path="tasks" element={<TasksView />} />
+          <Route path="calendar" element={<CalendarView />} />
           <Route path="projects" element={<ProjectsView />} />
           <Route path="sources" element={<SourcesView />} />
         </Route>

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -33,12 +33,24 @@ def _resolve_project(db: Session, name: str) -> Project:
 
 @router.get("", response_model=list[schemas.TaskOut])
 def list_tasks(
-    view: str = "all",  # all | today | upcoming | inbox | done
+    view: str = "all",  # all | today | upcoming | inbox | done | scheduled
     project_id: str | None = None,
+    start: datetime | None = None,  # for view=scheduled
+    end: datetime | None = None,
     db: Session = Depends(get_db),
 ):
     stmt = select(Task)
     today = date.today()
+    if view == "scheduled":
+        # Every task (any status) placed on the calendar in [start, end).
+        stmt = stmt.where(Task.scheduled_at.is_not(None)).order_by(Task.scheduled_at)
+        if start:
+            stmt = stmt.where(Task.scheduled_at >= start)
+        if end:
+            stmt = stmt.where(Task.scheduled_at < end)
+        if project_id:
+            stmt = stmt.where(Task.project_id == project_id)
+        return db.execute(stmt).scalars().all()
     if view == "done":
         stmt = stmt.where(Task.status == "done").order_by(Task.completed_at.desc())
     else:

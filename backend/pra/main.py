@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import Settings
 from .db import init_db, make_engine, make_sessionmaker
-from .routers import capture, notes, projects, search, sources, tasks
+from .routers import calendar, capture, notes, projects, search, sources, tasks
 from .services import vault
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -37,9 +37,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.sessionmaker = sessionmaker
 
+    # Dev frontend + the browser clipper extension (server binds 127.0.0.1 only).
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_origin_regex=r"(chrome|moz)-extension://.*",
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -47,7 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     with sessionmaker() as session:
         vault.reindex(session, settings)
 
-    for router in (capture, notes, tasks, projects, sources, search):
+    for router in (capture, notes, tasks, projects, sources, search, calendar):
         app.include_router(router.router)
 
     @app.get("/api/health")

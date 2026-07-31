@@ -44,6 +44,7 @@ class TaskCreate(BaseModel):
     tags: list[str] = []
     due_date: date | None = None
     scheduled_at: datetime | None = None
+    duration_min: int | None = Field(default=None, ge=5, le=24 * 60)
     project_id: str | None = None
     parent_id: str | None = None
     note_id: str | None = None
@@ -59,6 +60,7 @@ class TaskUpdate(BaseModel):
     clear_due_date: bool = False
     scheduled_at: datetime | None = None
     clear_scheduled_at: bool = False
+    duration_min: int | None = Field(default=None, ge=5, le=24 * 60)
     project_id: str | None = None
     clear_project: bool = False
 
@@ -72,6 +74,7 @@ class TaskOut(ORMModel):
     tags: list[str]
     due_date: date | None
     scheduled_at: datetime | None
+    duration_min: int
     project_id: str | None
     parent_id: str | None
     note_id: str | None
@@ -173,6 +176,52 @@ class CaptureOut(BaseModel):
     kind: str  # "task" | "snippet"
     task: TaskOut | None = None
     note: NoteOut | None = None
+
+
+# ---- Calendar -------------------------------------------------------------
+
+class CalendarFeedCreate(BaseModel):
+    name: str
+    url: str
+    color: str = "#22c55e"
+
+
+class CalendarFeedUpdate(BaseModel):
+    name: str | None = None
+    url: str | None = None
+    color: str | None = None
+    enabled: bool | None = None
+
+
+class CalendarFeedOut(ORMModel):
+    id: str
+    name: str
+    url: str
+    color: str
+    enabled: bool
+    created_at: datetime
+
+
+class CalendarEventOut(BaseModel):
+    feed_id: str
+    feed_name: str
+    color: str
+    title: str
+    start: datetime
+    end: datetime
+    all_day: bool
+    location: str = ""
+
+
+class CalendarFeedError(BaseModel):
+    feed_id: str
+    feed_name: str
+    message: str
+
+
+class CalendarEventsOut(BaseModel):
+    events: list[CalendarEventOut]
+    errors: list[CalendarFeedError]
 
 
 # ---- Search ---------------------------------------------------------------

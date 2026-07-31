@@ -67,7 +67,26 @@ docs/               BRAINSTORM.md, PLAN.md
 - Windows desktop run: `python desktop/main.py` (opens window, registers Ctrl+Alt+Space
   quick capture).
 
+## Phase 2 (built)
+
+- **Week calendar** (`frontend/src/views/CalendarView.tsx`): drag unscheduled
+  tasks onto the grid (30-min snap), drag blocks to move, resize the bottom
+  edge to change `duration_min`, complete/unschedule in place, current-time
+  line, all-day chips.
+- **External calendars** via ICS feed subscriptions (`pra/services/calendars.py`,
+  `pra/routers/calendar.py`): Google/Outlook "secret iCal address" URLs,
+  recurring events expanded with `recurring-ical-events`, 5-min fetch cache,
+  broken feeds reported as per-feed errors instead of failing the request.
+  Chosen over the Google Calendar API deliberately: read-only sync with zero
+  OAuth/cloud-console setup.
+- **Task duration**: `tasks.duration_min` added via a tiny forward-only
+  ALTER TABLE migration helper in `pra/db.py` (`_ensure_column`).
+- **Browser clipper** (`clipper/`): Chrome/Edge MV3 extension — popup with
+  editable clip + save-as-task, context-menu and Alt+Shift+C one-shot clips,
+  posts to `/api/capture` on 127.0.0.1 with source URL/title. Backend CORS
+  allows `chrome-extension://` origins.
+
 ## Explicitly deferred (later phases)
 
-Calendar/time-blocking UI, Google Calendar sync, wiki-links/backlinks, browser clipper,
-weekly review/resurfacing, AI/semantic search, mobile capture.
+Wiki-links/backlinks, weekly review/resurfacing, AI/semantic search, mobile
+capture, two-way calendar write-back.

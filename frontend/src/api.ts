@@ -17,6 +17,7 @@ export interface Task {
   tags: string[];
   due_date: string | null;
   scheduled_at: string | null;
+  duration_min: number;
   project_id: string | null;
   parent_id: string | null;
   note_id: string | null;
@@ -61,6 +62,32 @@ export interface SearchHit {
   entity_id: string;
   title: string;
   snippet: string;
+}
+
+export interface CalendarFeed {
+  id: string;
+  name: string;
+  url: string;
+  color: string;
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface CalendarEvent {
+  feed_id: string;
+  feed_name: string;
+  color: string;
+  title: string;
+  start: string;
+  end: string;
+  all_day: boolean;
+  location: string;
+}
+
+export interface CalendarFeedError {
+  feed_id: string;
+  feed_name: string;
+  message: string;
 }
 
 export interface CaptureResult {
@@ -115,6 +142,8 @@ export const api = {
 
   listTasks: (view = "all", project_id?: string) =>
     request<Task[]>(`/api/tasks${qs({ view, project_id })}`),
+  listScheduledTasks: (start: string, end: string) =>
+    request<Task[]>(`/api/tasks${qs({ view: "scheduled", start, end })}`),
   createTask: (body: { text?: string } & Partial<Task>) =>
     request<Task>("/api/tasks", { method: "POST", body: JSON.stringify(body) }),
   updateTask: (id: string, body: Record<string, unknown>) =>
@@ -137,6 +166,17 @@ export const api = {
   updateSource: (id: string, body: Partial<Source>) =>
     request<Source>(`/api/sources/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteSource: (id: string) => request<void>(`/api/sources/${id}`, { method: "DELETE" }),
+
+  listFeeds: () => request<CalendarFeed[]>("/api/calendar/feeds"),
+  createFeed: (body: { name: string; url: string; color?: string }) =>
+    request<CalendarFeed>("/api/calendar/feeds", { method: "POST", body: JSON.stringify(body) }),
+  updateFeed: (id: string, body: Partial<CalendarFeed>) =>
+    request<CalendarFeed>(`/api/calendar/feeds/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteFeed: (id: string) => request<void>(`/api/calendar/feeds/${id}`, { method: "DELETE" }),
+  calendarEvents: (start: string, end: string) =>
+    request<{ events: CalendarEvent[]; errors: CalendarFeedError[] }>(
+      `/api/calendar/events${qs({ start, end })}`,
+    ),
 
   search: (q: string, types?: string) =>
     request<{ query: string; hits: SearchHit[] }>(`/api/search${qs({ q, types })}`),

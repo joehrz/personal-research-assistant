@@ -23,6 +23,14 @@ your own disk.
 - **Sources** — papers/articles/books with authors, URL, DOI, and reading status.
 - **Search** — SQLite FTS5 full-text search across notes and tasks, in a
   Ctrl+K command palette with prefix (search-as-you-type) matching.
+- **Calendar & time blocking** — a week view where you drag unscheduled tasks
+  onto the grid to block time, drag blocks to reschedule, resize to change
+  duration, and complete tasks in place. External calendars (Google, Outlook,
+  etc.) appear read-only via their ICS feed URLs — no OAuth setup needed.
+- **Browser clipper** — a Chrome/Edge extension (in `clipper/`) that saves the
+  current selection or page to your inbox with the source URL and title
+  attached; right-click, popup, or Alt+Shift+C. See
+  [clipper/README.md](clipper/README.md).
 
 Data lives in `~/.personal-research-assistant/` (override with `PRA_DATA_DIR`):
 `vault/` holds your Markdown files; `pra.db` is a rebuildable index.
@@ -73,9 +81,17 @@ one process runs.
 | `Ctrl+Enter` | Save capture |
 | `Esc` | Close dialogs |
 
+## Connecting Google Calendar
+
+In Google Calendar: **Settings → [your calendar] → Integrate calendar →
+Secret address in iCal format**. Copy that URL, then in the app open
+**Calendar → Calendars → Add** and paste it. Events appear read-only alongside
+your task blocks. (Keep the URL private — anyone with it can read the
+calendar.) Outlook and most other calendars offer an equivalent ICS URL.
+
 ## Roadmap
 
-Phase 2 adds the week calendar with drag-and-drop time blocking and Google
-Calendar sync; Phase 3 adds wiki-links/backlinks, a browser clipper, and the
-weekly review flow; Phase 4 adds semantic search and AI assistance. See
-[docs/BRAINSTORM.md](docs/BRAINSTORM.md) for the full roadmap.
+Done: Phase 1 (capture, notes, tasks, search) and Phase 2 (week calendar with
+time blocking, ICS calendar feeds, browser clipper). Next: wiki-links and
+backlinks, weekly review/resurfacing, then semantic search and AI assistance.
+See [docs/BRAINSTORM.md](docs/BRAINSTORM.md) for the full roadmap.

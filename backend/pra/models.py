@@ -46,6 +46,7 @@ class Task(Base):
     tags: Mapped[list] = mapped_column(JSON, default=list)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    duration_min: Mapped[int] = mapped_column(Integer, default=60)
     project_id: Mapped[str | None] = mapped_column(
         ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
     )
@@ -91,6 +92,20 @@ class NoteIndex(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     modified_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class CalendarFeed(Base):
+    """A subscribed iCalendar (ICS) URL — e.g. a Google Calendar secret
+    address — shown read-only alongside scheduled tasks."""
+
+    __tablename__ = "calendar_feeds"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(200))
+    url: Mapped[str] = mapped_column(String(2000))
+    color: Mapped[str] = mapped_column(String(20), default="#22c55e")
+    enabled: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class Link(Base):
