@@ -170,11 +170,33 @@ export interface CaptureResult {
   note: Note | null;
 }
 
+function logApiFailure(message: string) {
+  try {
+    void fetch("/api/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level: "error", message, context: "api-client" }),
+    }).catch(() => {});
+  } catch {
+    /* logging must never throw */
+  }
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "Content-Type": "application/json" },
+      ...init,
+    });
+  } catch (e) {
+    // network-level failure (backend gone?) — worth a log entry, unless the
+    // failing call IS the log endpoint
+    if (!url.startsWith("/api/logs")) {
+      logApiFailure(`network failure: ${init?.method ?? "GET"} ${url}: ${String(e)}`);
+    }
+    throw e;
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -182,6 +204,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       detail = body.detail ?? detail;
     } catch {
       /* not json */
+    }
+    if (res.status >= 500 && !url.startsWith("/api/logs")) {
+      logApiFailure(`${init?.method ?? "GET"} ${url} -> ${res.status}: ${String(detail).slice(0, 500)}`);
     }
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
