@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { BookMarked, CalendarHeart, Eye, FileText, Link2, Pencil, Plus, Trash2, ExternalLink, X } from "lucide-react";
+import { BookMarked, CalendarHeart, Eye, FileText, Link2, Pencil, Plus, Search, Tag, Trash2, ExternalLink, X } from "lucide-react";
 import clsx from "clsx";
 import { api, type Note, type NoteMeta, type Source, type Template } from "../api";
 
@@ -35,8 +35,33 @@ export default function NotesView() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [wiki, setWiki] = useState<{ query: string; start: number; index: number } | null>(null);
+  const [filter, setFilter] = useState("");
+  const [tagsDraft, setTagsDraft] = useState("");
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // "#tag" filters by tag; anything else matches titles (and tags loosely).
+  const visibleNotes = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return notes;
+    if (q.startsWith("#")) {
+      const tag = q.slice(1);
+      return notes.filter((n) => (n.tags ?? []).some((t) => t.toLowerCase() === tag));
+    }
+    return notes.filter(
+      (n) =>
+        n.title.toLowerCase().includes(q) ||
+        (n.tags ?? []).some((t) => t.toLowerCase().includes(q)),
+    );
+  }, [notes, filter]);
+
+  const allTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const n of notes) for (const t of n.tags ?? []) {
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+  }, [notes]);
 
   const wikiMatches = useMemo(() => {
     if (wiki === null) return [];
@@ -70,6 +95,7 @@ export default function NotesView() {
       setActive(n);
       setDraft(n.content);
       setTitle(n.title);
+      setTagsDraft((n.tags ?? []).join(", "));
       setSaved(true);
     }).catch(() => navigate("/notes"));
     api.getBacklinks(noteId).then(setBacklinks).catch(() => setBacklinks([]));
@@ -144,6 +170,18 @@ export default function NotesView() {
     } else if (e.key === "Escape") {
       setWiki(null);
     }
+  };
+
+  const commitTags = async () => {
+    if (!active) return;
+    const parsed = tagsDraft
+      .split(",")
+      .map((t) => t.trim().replace(/^#/, ""))
+      .filter(Boolean);
+    if (JSON.stringify(parsed) === JSON.stringify(active.tags ?? [])) return;
+    const updated = await api.updateNote(active.id, { tags: parsed });
+    setActive({ ...active, tags: updated.tags });
+    void loadList();
   };
 
   // ---- source linking -----------------------------------------------------
@@ -248,8 +286,42 @@ export default function NotesView() {
             </div>
           )}
         </div>
+        <div className="border-b border-ink-850 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-lg bg-ink-850 px-2.5 py-1.5">
+            <Search size={13} className="shrink-0 text-ink-500" />
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter notes… (#tag for tags)"
+              className="w-full bg-transparent text-xs outline-none placeholder:text-ink-500"
+            />
+            {filter && (
+              <button onClick={() => setFilter("")} className="shrink-0 text-ink-500 hover:text-ink-100">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          {allTags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {allTags.map(([tag, count]) => (
+                <button
+                  key={tag}
+                  onClick={() => setFilter(filter === `#${tag}` ? "" : `#${tag}`)}
+                  className={clsx(
+                    "rounded-full px-2 py-0.5 text-[10px] transition-colors",
+                    filter === `#${tag}`
+                      ? "bg-accent-500 text-white"
+                      : "bg-ink-800 text-ink-300 hover:bg-ink-700 hover:text-ink-100",
+                  )}
+                >
+                  #{tag} <span className="opacity-60">{count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="overflow-y-auto">
-          {notes.map((n) => (
+          {visibleNotes.map((n) => (
             <button
               key={n.id}
               onClick={() => navigate(`/notes/${n.id}`)}
@@ -267,8 +339,10 @@ export default function NotesView() {
               </span>
             </button>
           ))}
-          {notes.length === 0 && (
-            <p className="px-4 py-6 text-xs text-ink-500">No notes yet.</p>
+          {visibleNotes.length === 0 && (
+            <p className="px-4 py-6 text-xs text-ink-500">
+              {notes.length === 0 ? "No notes yet." : "No notes match this filter."}
+            </p>
           )}
         </div>
       </div>
@@ -337,9 +411,20 @@ export default function NotesView() {
                 )}
               </>
             )}
+            <span className="ml-auto flex items-center gap-1.5">
+              <Tag size={12} className="shrink-0 text-ink-500" />
+              <input
+                value={tagsDraft}
+                onChange={(e) => setTagsDraft(e.target.value)}
+                onBlur={() => void commitTags()}
+                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                placeholder="tags, comma-separated"
+                className="w-44 rounded-md bg-ink-850 px-2 py-1 text-xs outline-none placeholder:text-ink-500 focus:ring-1 focus:ring-accent-500"
+              />
+            </span>
             {active.source_url && (
               <a href={active.source_url} target="_blank" rel="noreferrer"
-                className="ml-auto flex items-center gap-1.5 text-accent-400 hover:underline truncate max-w-[45%]">
+                className="flex items-center gap-1.5 text-accent-400 hover:underline truncate max-w-[35%]">
                 <ExternalLink size={12} /> {active.source_title || active.source_url}
               </a>
             )}

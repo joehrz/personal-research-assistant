@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { api, type Project, type Task } from "../api";
 import { notifyTimerChanged } from "../components/TimerWidget";
 import { CAPTURE_EVENT } from "../components/QuickCapture";
+import TaskDetail from "../components/TaskDetail";
 
 const VIEWS = [
   { key: "today", label: "Today" },
@@ -38,6 +39,7 @@ export default function TasksView() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Task | null>(null);
 
   const load = useCallback(async () => {
     const [t, p] = await Promise.all([api.listTasks(view), api.listProjects()]);
@@ -164,14 +166,16 @@ export default function TasksView() {
                   <Circle size={18} className={PRIORITY_COLORS[task.priority]} />
                 )}
               </button>
-              <span
+              <button
+                onClick={() => setEditing(task)}
+                title="Edit task"
                 className={clsx(
-                  "min-w-0 truncate text-sm",
+                  "min-w-0 truncate text-left text-sm hover:text-accent-400 transition-colors",
                   task.status === "done" && "line-through text-ink-500",
                 )}
               >
                 {task.title}
-              </span>
+              </button>
               <span className="ml-auto flex items-center gap-2 shrink-0 text-[11px]">
                 {task.recurrence && (
                   <Repeat size={11} className="text-accent-400" aria-label="Recurring" />
@@ -238,6 +242,14 @@ export default function TasksView() {
           );
         })}
       </div>
+      {editing && (
+        <TaskDetail
+          task={editing}
+          projects={projects}
+          onClose={() => setEditing(null)}
+          onChanged={() => void load()}
+        />
+      )}
     </div>
   );
 }

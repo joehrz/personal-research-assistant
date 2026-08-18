@@ -117,3 +117,12 @@ def test_reschedule_and_unschedule(client):
     assert moved["scheduled_at"] == "2026-08-05T14:00:00"
     cleared = client.patch(f"/api/tasks/{t['id']}", json={"clear_scheduled_at": True}).json()
     assert cleared["scheduled_at"] is None
+
+
+def test_task_note_link_update_and_clear(client):
+    note = client.post("/api/notes", json={"title": "Method ideas", "content": "x"}).json()
+    task = client.post("/api/tasks", json={"title": "implement method"}).json()
+    linked = client.patch(f"/api/tasks/{task['id']}", json={"note_id": note["id"]}).json()
+    assert linked["note_id"] == note["id"]
+    cleared = client.patch(f"/api/tasks/{task['id']}", json={"note_id": ""}).json()
+    assert cleared["note_id"] is None
