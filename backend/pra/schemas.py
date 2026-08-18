@@ -63,6 +63,7 @@ class TaskUpdate(BaseModel):
     clear_scheduled_at: bool = False
     duration_min: int | None = Field(default=None, ge=5, le=24 * 60)
     recurrence: str | None = None  # "" clears
+    note_id: str | None = None  # "" clears
     project_id: str | None = None
     clear_project: bool = False
 

@@ -12,6 +12,8 @@ shell and production mode need only this one server. All activity is logged to
 from __future__ import annotations
 
 import logging
+import os
+import threading
 import time as time_module
 from pathlib import Path
 
@@ -92,6 +94,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     log.info("trash purge: %d expired item(s) removed", purged)
     backup_result = backup_service.run_backup(settings)
     log.info("startup vault backup: %s", backup_result["message"])
+
+    # Periodic auto-backup while the app stays running (0 disables).
+    interval_min = int(os.environ.get("PRA_BACKUP_INTERVAL_MIN", "240"))
+    if interval_min > 0:
+        def _backup_loop() -> None:
+            while True:
+                time_module.sleep(interval_min * 60)
+                result = backup_service.run_backup(settings)
+                log.info("periodic vault backup: %s", result["message"])
+
+        threading.Thread(target=_backup_loop, daemon=True, name="backup-loop").start()
+        log.info("periodic vault backup every %d min", interval_min)
 
     for router in (capture, notes, tasks, projects, sources, search, calendar, review,
                    templates, time, assets, trash, backup, graph, logs):

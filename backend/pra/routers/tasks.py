@@ -114,6 +114,8 @@ def update_task(task_id: str, body: schemas.TaskUpdate, db: Session = Depends(ge
     if fields.pop("clear_project", False):
         task.project_id = None
         fields.pop("project_id", None)
+    if "note_id" in fields:  # empty string unlinks the note
+        task.note_id = fields.pop("note_id") or None
 
     status = fields.pop("status", None)
     if status is not None and status != task.status:

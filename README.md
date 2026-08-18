@@ -70,6 +70,21 @@ your own disk.
   with drag-and-drop, plus that project's notes.
 - **Graph view** — an interactive map of your notes and their wiki-links;
   hover to highlight a note's neighborhood, click to open it.
+- **Task editor** — click any task title to open a full editor: title, notes,
+  priority, tags, project, due date, calendar schedule + duration, recurrence,
+  and a linked note.
+- **System tray** — the app lives in the tray: closing the window hides it
+  (hotkeys keep working), and the tray menu has Open / Quick capture / Snip /
+  Back up / Quit. The vault also auto-backs-up every 4 hours while running
+  (`PRA_BACKUP_INTERVAL_MIN` to change, 0 disables).
+- **Snip to inbox** — press **Ctrl+Alt+S** anywhere: the Windows snip overlay
+  opens, and whatever you snip lands in your inbox as a note with the
+  screenshot embedded.
+- **Calendar overlap lanes** — overlapping meetings/blocks render side-by-side
+  instead of on top of each other.
+- **Tags & filtering** — tag notes from the editor (comma-separated field);
+  the notes list has a filter box (`#tag` filters by tag) and clickable tag
+  chips with counts.
 - **Weekly review** — one screen showing the week's throughput, inbox backlog,
   stale tasks (overdue or dateless-and-forgotten) with quick actions, a few
   resurfaced old notes so past research resurfaces instead of rotting, and
@@ -111,9 +126,11 @@ cd ../backend && pip install -e .[desktop]
 python ../desktop/main.py
 ```
 
-This opens a native window and registers **Ctrl+Alt+Space** as a system-wide
-quick-capture hotkey. The backend serves the built frontend itself, so only
-one process runs.
+This opens a native window, puts an icon in the system tray, and registers two
+system-wide hotkeys: **Ctrl+Alt+Space** (quick capture) and **Ctrl+Alt+S**
+(snip a screenshot straight to the inbox). Closing the window hides the app to
+the tray; quit from the tray menu. The backend serves the built frontend
+itself, so only one process runs.
 
 ## Keyboard shortcuts (in-app)
 

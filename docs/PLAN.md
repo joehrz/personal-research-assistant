@@ -157,7 +157,28 @@ docs/               BRAINSTORM.md, PLAN.md
   force-directed layout with hover-neighborhood highlighting, no external
   libraries.
 
+## Phase 7 (built) — daily-driver polish
+
+- **Task detail panel** (`frontend/src/components/TaskDetail.tsx`): click a
+  task title to edit everything — title, notes, priority, tags, project,
+  due/scheduled/duration, recurrence (anchored options + custom passthrough),
+  linked note (with open button). `TaskUpdate.note_id` ("" unlinks).
+- **Tray + close-to-tray** (`desktop/main.py`, pystray + Pillow): tray menu
+  with Open / Quick capture / Snip / Back up / Quit; window close hides to
+  tray only when the tray is available. Periodic auto-backup thread in
+  `create_app` (default 240 min, `PRA_BACKUP_INTERVAL_MIN`, 0 disables).
+- **Snip to inbox**: Ctrl+Alt+S sends Win+Shift+S, polls the clipboard for the
+  new screenshot (PIL ImageGrab), uploads via /api/assets, and files an inbox
+  note with the image embedded.
+- **Calendar overlap lanes** (`layoutLanes` in CalendarView): greedy
+  interval-partitioning assigns overlapping events+tasks to side-by-side
+  columns per cluster, Google Calendar-style.
+- **Tags & filter**: notes-list filter box (`#tag` = exact tag), clickable
+  tag chips with counts (aggregated client-side), tags editor field in the
+  note header; TasksView tags editable via the detail panel.
+
 ## Explicitly deferred
 
 AI/semantic search (skipped by decision), two-way calendar write-back,
-email-in capture, task dependencies, encryption at rest.
+email-in capture, task dependencies, encryption at rest, one-click installer
+(PyInstaller), search filters (tag:/project:), weekly-review export.

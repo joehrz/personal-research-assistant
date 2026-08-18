@@ -47,6 +47,42 @@ const minutesIntoDay = (iso: string) => {
   return d.getHours() * 60 + d.getMinutes();
 };
 
+/** Assign overlapping blocks to side-by-side lanes (like Google Calendar).
+ * Returns per-id {col, cols}: the block's lane and its cluster's lane count. */
+function layoutLanes(
+  blocks: { id: string; startMin: number; endMin: number }[],
+): Map<string, { col: number; cols: number }> {
+  const sorted = [...blocks].sort(
+    (a, b) => a.startMin - b.startMin || b.endMin - a.endMin,
+  );
+  const result = new Map<string, { col: number; cols: number }>();
+  let cluster: string[] = [];
+  let laneEnds: number[] = [];
+
+  const flush = () => {
+    for (const id of cluster) {
+      result.get(id)!.cols = laneEnds.length;
+    }
+    cluster = [];
+    laneEnds = [];
+  };
+
+  for (const b of sorted) {
+    if (cluster.length > 0 && b.startMin >= Math.max(...laneEnds)) flush();
+    let col = laneEnds.findIndex((end) => end <= b.startMin);
+    if (col === -1) {
+      col = laneEnds.length;
+      laneEnds.push(b.endMin);
+    } else {
+      laneEnds[col] = b.endMin;
+    }
+    result.set(b.id, { col, cols: 1 });
+    cluster.push(b.id);
+  }
+  flush();
+  return result;
+}
+
 export default function CalendarView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [scheduled, setScheduled] = useState<Task[]>([]);
@@ -343,6 +379,26 @@ export default function CalendarView() {
               const dayTasks = scheduled.filter(
                 (t) => t.scheduled_at && toDateStr(new Date(t.scheduled_at)) === toDateStr(day),
               );
+              // Overlapping meetings/tasks share the column side-by-side.
+              const lanes = layoutLanes([
+                ...dayEvents.map((e, i) => {
+                  const start = minutesIntoDay(e.start);
+                  const dur = Math.max(15, (new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000);
+                  return { id: `ev-${i}`, startMin: start, endMin: start + dur };
+                }),
+                ...dayTasks.map((t) => {
+                  const start = minutesIntoDay(t.scheduled_at!);
+                  const dur = resizePreview?.id === t.id ? resizePreview.dur : t.duration_min;
+                  return { id: t.id, startMin: start, endMin: start + dur };
+                }),
+              ]);
+              const laneStyle = (id: string) => {
+                const lane = lanes.get(id) ?? { col: 0, cols: 1 };
+                return {
+                  left: `calc(${(lane.col / lane.cols) * 100}% + 2px)`,
+                  width: `calc(${100 / lane.cols}% - 4px)`,
+                };
+              };
               return (
                 <div
                   key={day.toISOString()}
@@ -384,9 +440,10 @@ export default function CalendarView() {
                     const dur = Math.max(15, (new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000);
                     return (
                       <div key={`ev-${i}`}
-                        className="absolute inset-x-0.5 z-0 rounded-md border-l-2 px-1.5 py-0.5 overflow-hidden"
+                        className="absolute z-0 rounded-md border-l-2 px-1.5 py-0.5 overflow-hidden"
                         style={{
                           ...blockStyle(e.start, dur),
+                          ...laneStyle(`ev-${i}`),
                           backgroundColor: `${e.color}1f`,
                           borderColor: e.color,
                         }}
@@ -407,10 +464,10 @@ export default function CalendarView() {
                         draggable
                         onDragStart={(e) => startDrag(e, t)}
                         className={clsx(
-                          "group absolute inset-x-0.5 z-10 rounded-md border-l-2 border-accent-400 bg-accent-500/25 px-1.5 py-0.5 overflow-hidden cursor-grab active:cursor-grabbing",
+                          "group absolute z-10 rounded-md border-l-2 border-accent-400 bg-accent-500/25 px-1.5 py-0.5 overflow-hidden cursor-grab active:cursor-grabbing",
                           t.status === "done" && "opacity-50",
                         )}
-                        style={blockStyle(t.scheduled_at!, dur)}
+                        style={{ ...blockStyle(t.scheduled_at!, dur), ...laneStyle(t.id) }}
                       >
                         <div className="flex items-start gap-1">
                           <button onClick={() => void toggleDone(t)} className="mt-0.5 shrink-0">
